@@ -1,0 +1,80 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+*.lcov
+.nyc_output
+
+# Production builds
+build/
+dist/
+.next/
+out/
+
+# Environment variables - NEVER commit these
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+*.env
+Backend/.env
+Backend/.env.*
+Frontend/.env
+Frontend/.env.*
+!Backend/.env.example
+!Frontend/.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.sublime-*
+
+# Database
+*.sqlite
+*.db
+pgdata/
+
+# Uploads - User uploaded content
+Backend/uploads/
+uploads/
+temp/
+*.tmp
+
+# Secrets
+secrets/
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
+
+# Cache
+.cache/
+.parcel-cache/
+.turbo/
+
+# Misc
+.qodo/
