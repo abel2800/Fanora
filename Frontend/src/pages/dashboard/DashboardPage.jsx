@@ -177,7 +177,7 @@ export function DashboardPage() {
           </div>
         ) : (
           <div className="text-center py-16 px-4">
-            <SparklesIcon className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+            <SparklesIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-100 mb-2">
               No content yet
             </h3>

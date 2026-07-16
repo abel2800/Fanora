@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery, useMutation } from 'react-query'
 import { useAuth } from '../../contexts/AuthContext'
+import { useI18n } from '../../contexts/I18nContext'
 import { usersAPI } from '../../services/api'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
@@ -15,6 +17,7 @@ import {
 
 export function ProfilePage() {
   const { user, updateUser } = useAuth()
+  const { t } = useI18n()
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
@@ -25,7 +28,6 @@ export function ProfilePage() {
     profileImage: user?.profileImage || ''
   })
 
-  // Fetch full profile
   const { data: profile, isLoading } = useQuery({
     queryKey: ['user-profile'],
     queryFn: async () => {
@@ -33,13 +35,12 @@ export function ProfilePage() {
         const response = await usersAPI.getProfile()
         return response.data
       } catch (err) {
-        toast.error('Failed to load profile')
+        toast.error(t('failedToLoadProfile'))
         return user
       }
     }
   })
 
-  // Update profile mutation
   const updateMutation = useMutation({
     mutationFn: async (data) => {
       const response = await usersAPI.updateProfile(data)
@@ -48,10 +49,10 @@ export function ProfilePage() {
     onSuccess: (data) => {
       updateUser(data)
       setIsEditing(false)
-      toast.success('Profile updated successfully')
+      toast.success(t('profileUpdated'))
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to update profile')
+      toast.error(error.response?.data?.message || t('failedToUpdateProfile'))
     }
   })
 
@@ -88,19 +89,14 @@ export function ProfilePage() {
 
   return (
     <div className="bg-charcoal-900 min-h-screen">
-      {/* Cover Photo */}
       <div className="relative h-32 md:h-48 bg-gradient-to-r from-primary-600 to-primary-800">
-        {/* Optional: Add cover photo */}
         <button className="absolute top-4 right-4 p-2 bg-charcoal-800 hover:bg-charcoal-700 rounded-full text-gray-300 transition-colors">
           <CameraIcon className="h-5 w-5" />
         </button>
       </div>
 
-      {/* Profile Info Section */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-        {/* Profile Header Overlap */}
         <div className="flex flex-col sm:flex-row sm:items-end sm:space-x-6 -mt-16 mb-8 relative z-10">
-          {/* Avatar */}
           <div className="mb-6 sm:mb-0">
             <div className="relative">
               <Avatar
@@ -116,7 +112,6 @@ export function ProfilePage() {
             </div>
           </div>
 
-          {/* Name & Verification */}
           <div className="flex-1 mb-6 sm:mb-0">
             <div className="flex items-center space-x-2 mb-2">
               <h1 className="text-3xl font-bold text-gray-100">
@@ -138,22 +133,23 @@ export function ProfilePage() {
                   onClick={() => setIsEditing(true)}
                 >
                   <PencilIcon className="h-4 w-4" />
-                  <span>Edit Profile</span>
+                  <span>{t('editProfile')}</span>
                 </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="flex items-center space-x-2"
-                >
-                  <Cog6ToothIcon className="h-4 w-4" />
-                  <span>Settings</span>
-                </Button>
+                <Link to="/settings">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="flex items-center space-x-2"
+                  >
+                    <Cog6ToothIcon className="h-4 w-4" />
+                    <span>{t('settings')}</span>
+                  </Button>
+                </Link>
               </div>
             )}
           </div>
         </div>
 
-        {/* Bio & Stats Section */}
         {!isEditing && displayData?.bio && (
           <div className="bg-charcoal-800 rounded-xl p-6 mb-8 border border-charcoal-700">
             <p className="text-gray-200 text-lg">
@@ -162,95 +158,89 @@ export function ProfilePage() {
           </div>
         )}
 
-        {/* Stats Grid */}
         {!isEditing && (
           <div className="grid grid-cols-3 gap-4 mb-8">
             <div className="bg-charcoal-800 rounded-xl p-6 border border-charcoal-700 text-center">
               <div className="text-3xl font-bold text-primary-400 mb-2">
                 {displayData?.followers || 0}
               </div>
-              <p className="text-gray-400 text-sm">Followers</p>
+              <p className="text-gray-400 text-sm capitalize">{t('followers')}</p>
             </div>
             <div className="bg-charcoal-800 rounded-xl p-6 border border-charcoal-700 text-center">
               <div className="text-3xl font-bold text-primary-400 mb-2">
                 {displayData?.following || 0}
               </div>
-              <p className="text-gray-400 text-sm">Following</p>
+              <p className="text-gray-400 text-sm">{t('following')}</p>
             </div>
             <div className="bg-charcoal-800 rounded-xl p-6 border border-charcoal-700 text-center">
               <div className="text-3xl font-bold text-primary-400 mb-2">
                 {displayData?.totalEarnings || 0}
               </div>
-              <p className="text-gray-400 text-sm">Earnings</p>
+              <p className="text-gray-400 text-sm">{t('earnings')}</p>
             </div>
           </div>
         )}
 
-        {/* Edit Form */}
         {isEditing && (
           <div className="bg-charcoal-800 rounded-xl p-6 border border-charcoal-700">
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Name Fields */}
               <div className="grid grid-cols-2 gap-4">
                 <Input
-                  label="First Name"
+                  label={t('firstName')}
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleChange}
-                  placeholder="Enter first name"
+                  placeholder={t('enterFirstName')}
                 />
                 <Input
-                  label="Last Name"
+                  label={t('lastName')}
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleChange}
-                  placeholder="Enter last name"
+                  placeholder={t('enterLastName')}
                 />
               </div>
 
-              {/* Username & Email (Read-only) */}
               <Input
-                label="Username"
+                label={t('username')}
                 name="username"
                 value={formData.username}
                 onChange={handleChange}
-                placeholder="Enter username"
+                placeholder={t('enterUsername')}
                 disabled
               />
 
               <Input
-                label="Email"
+                label={t('email')}
                 name="email"
                 type="email"
                 value={formData.email}
                 onChange={handleChange}
-                placeholder="Enter email"
+                placeholder={t('enterEmail')}
                 disabled
               />
 
-              {/* Bio */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-3">
-                  Bio
+                  {t('bio')}
                 </label>
                 <textarea
                   name="bio"
                   value={formData.bio}
                   onChange={handleChange}
-                  placeholder="Tell us about yourself"
+                  placeholder={t('tellUsAboutYourself')}
                   rows="4"
                   className="input-base resize-none"
                 />
               </div>
 
-              {/* Action Buttons */}
               <div className="flex space-x-4 pt-4 border-t border-charcoal-700">
                 <Button
                   variant="primary"
                   type="submit"
                   disabled={updateMutation.isPending}
                 >
-                  {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+                  {updateMutation.isPending ? t('saving') : t('saveChanges')}
                 </Button>
                 <Button
                   variant="secondary"
@@ -266,23 +256,22 @@ export function ProfilePage() {
                     })
                   }}
                 >
-                  Cancel
+                  {t('cancel')}
                 </Button>
               </div>
             </form>
           </div>
         )}
 
-        {/* Email Verification Status */}
         {!isEditing && (
           <div className="bg-charcoal-800 rounded-xl p-6 border border-charcoal-700">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-gray-100 font-semibold mb-1">Email Verification</h3>
+                <h3 className="text-gray-100 font-semibold mb-1">{t('emailVerification')}</h3>
                 <p className="text-gray-400 text-sm">
                   {displayData?.isEmailVerified
-                    ? 'Your email is verified'
-                    : 'Verify your email to unlock all features'}
+                    ? t('emailIsVerified')
+                    : t('verifyEmailToUnlock')}
                 </p>
               </div>
               {displayData?.isEmailVerified && (

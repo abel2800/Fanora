@@ -1,119 +1,117 @@
 import { Link } from 'react-router-dom'
+import { useI18n } from '../../contexts/I18nContext'
 
 export function Footer() {
+  const { t } = useI18n()
+
   return (
-    <footer className="bg-white border-t border-gray-200">
+    <footer className="bg-charcoal-800 border-t border-charcoal-700">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Brand */}
           <div className="col-span-1 md:col-span-1">
             <div className="flex items-center space-x-2 mb-4">
               <div className="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-lg">F</span>
               </div>
-              <span className="text-xl font-bold text-gray-900">Fanora</span>
+              <span className="text-xl font-bold text-gray-100">Fanora</span>
             </div>
-            <p className="text-gray-600 text-sm mb-4">
-              The premier Fanora content creator platform. Connect with creators, 
-              subscribe to exclusive content, and support talent worldwide.
+            <p className="text-gray-400 text-sm mb-4">
+              {t('footerTagline')}
             </p>
             <div className="flex items-center space-x-1">
-              <span className="text-sm text-gray-600">Powered by Fanora</span>
+              <span className="text-sm text-gray-400">{t('poweredByFanora')}</span>
             </div>
           </div>
 
-          {/* Platform */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">
-              Platform
+            <h3 className="text-sm font-semibold text-gray-100 uppercase tracking-wide mb-4">
+              {t('platform')}
             </h3>
             <ul className="space-y-3">
               <li>
-                <Link to="/explore" className="text-gray-600 hover:text-primary-600 text-sm transition-colors">
-                  Explore Creators
+                <Link to="/explore" className="text-gray-400 hover:text-primary-600 text-sm transition-colors">
+                  {t('exploreCreators')}
                 </Link>
               </li>
               <li>
-                <Link to="/auth/register" className="text-gray-600 hover:text-primary-600 text-sm transition-colors">
-                  Become a Creator
+                <Link to="/auth/register" className="text-gray-400 hover:text-primary-600 text-sm transition-colors">
+                  {t('becomeCreator')}
                 </Link>
               </li>
               <li>
-                <a href="#" className="text-gray-600 hover:text-primary-600 text-sm transition-colors">
-                  How it Works
+                <a href="#" className="text-gray-400 hover:text-primary-600 text-sm transition-colors">
+                  {t('howItWorks')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-gray-600 hover:text-primary-600 text-sm transition-colors">
-                  Pricing
+                <a href="#" className="text-gray-400 hover:text-primary-600 text-sm transition-colors">
+                  {t('pricing')}
                 </a>
               </li>
             </ul>
           </div>
 
-          {/* Support */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">
-              Support
+            <h3 className="text-sm font-semibold text-gray-100 uppercase tracking-wide mb-4">
+              {t('support')}
             </h3>
             <ul className="space-y-3">
               <li>
-                <a href="#" className="text-gray-600 hover:text-primary-600 text-sm transition-colors">
-                  Help Center
+                <a href="#" className="text-gray-400 hover:text-primary-600 text-sm transition-colors">
+                  {t('helpCenter')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-gray-600 hover:text-primary-600 text-sm transition-colors">
-                  Safety & Guidelines
+                <a href="#" className="text-gray-400 hover:text-primary-600 text-sm transition-colors">
+                  {t('safetyGuidelines')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-gray-600 hover:text-primary-600 text-sm transition-colors">
-                  Contact Us
+                <a href="#" className="text-gray-400 hover:text-primary-600 text-sm transition-colors">
+                  {t('contactUs')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-gray-600 hover:text-primary-600 text-sm transition-colors">
-                  Report Content
+                <a href="#" className="text-gray-400 hover:text-primary-600 text-sm transition-colors">
+                  {t('reportContent')}
                 </a>
               </li>
             </ul>
           </div>
 
-          {/* Legal */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">
-              Legal
+            <h3 className="text-sm font-semibold text-gray-100 uppercase tracking-wide mb-4">
+              {t('legal')}
             </h3>
             <ul className="space-y-3">
               <li>
-                <a href="#" className="text-gray-600 hover:text-primary-600 text-sm transition-colors">
-                  Terms of Service
+                <a href="#" className="text-gray-400 hover:text-primary-600 text-sm transition-colors">
+                  {t('termsOfService')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-gray-600 hover:text-primary-600 text-sm transition-colors">
-                  Privacy Policy
+                <a href="#" className="text-gray-400 hover:text-primary-600 text-sm transition-colors">
+                  {t('privacyPolicy')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-gray-600 hover:text-primary-600 text-sm transition-colors">
-                  Cookie Policy
+                <a href="#" className="text-gray-400 hover:text-primary-600 text-sm transition-colors">
+                  {t('cookiePolicy')}
                 </a>
               </li>
               <li>
-                <a href="#" className="text-gray-600 hover:text-primary-600 text-sm transition-colors">
-                  DMCA
+                <a href="#" className="text-gray-400 hover:text-primary-600 text-sm transition-colors">
+                  {t('dmca')}
                 </a>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="border-t border-gray-200 pt-8 mt-8">
+        <div className="border-t border-charcoal-700 pt-8 mt-8">
           <div className="flex flex-col md:flex-row items-center justify-between">
-            <p className="text-gray-600 text-sm">
-              © 2024 Fanora. All rights reserved.
+            <p className="text-gray-400 text-sm">
+              {t('allRightsReserved')}
             </p>
             <div className="flex items-center space-x-6 mt-4 md:mt-0">
               <a href="#" className="text-gray-400 hover:text-primary-600 transition-colors">

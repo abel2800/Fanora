@@ -13,6 +13,16 @@ const Conversation = require('./Conversation');
 const Notification = require('./Notification');
 const UserSubscription = require('./UserSubscription');
 const ContentPurchase = require('./ContentPurchase');
+const ContentBundle = require('./ContentBundle');
+const CreatorReferral = require('./CreatorReferral');
+const TrustReport = require('./TrustReport');
+const LiveStream = require('./LiveStream');
+const CustomRequest = require('./CustomRequest');
+const GiftVoucher = require('./GiftVoucher');
+const CreatorVerification = require('./CreatorVerification');
+const MediaSecurityEvent = require('./MediaSecurityEvent');
+const PhoneOtp = require('./PhoneOtp');
+const WishlistItem = require('./WishlistItem');
 
 // Define associations
 // User associations
@@ -264,6 +274,43 @@ Content.hasMany(ContentPurchase, {
   as: 'purchases'
 });
 
+User.hasMany(ContentBundle, { foreignKey: 'creatorId', as: 'bundles' });
+ContentBundle.belongsTo(User, { foreignKey: 'creatorId', as: 'creator' });
+
+User.hasMany(CreatorReferral, { foreignKey: 'referrerId', as: 'referralsMade' });
+CreatorReferral.belongsTo(User, { foreignKey: 'referrerId', as: 'referrer' });
+CreatorReferral.belongsTo(User, { foreignKey: 'referredCreatorId', as: 'referredCreator' });
+
+User.hasMany(TrustReport, { foreignKey: 'reporterId', as: 'reportsFiled' });
+TrustReport.belongsTo(User, { foreignKey: 'reporterId', as: 'reporter' });
+TrustReport.belongsTo(User, { foreignKey: 'targetUserId', as: 'targetUser' });
+TrustReport.belongsTo(Content, { foreignKey: 'targetContentId', as: 'targetContent' });
+
+User.hasMany(LiveStream, { foreignKey: 'creatorId', as: 'liveStreams' });
+LiveStream.belongsTo(User, { foreignKey: 'creatorId', as: 'creator' });
+
+User.hasMany(CustomRequest, { foreignKey: 'fanId', as: 'customRequestsMade' });
+User.hasMany(CustomRequest, { foreignKey: 'creatorId', as: 'customRequestsReceived' });
+CustomRequest.belongsTo(User, { foreignKey: 'fanId', as: 'fan' });
+CustomRequest.belongsTo(User, { foreignKey: 'creatorId', as: 'creator' });
+CustomRequest.belongsTo(Content, { foreignKey: 'deliveryContentId', as: 'deliveryContent' });
+
+GiftVoucher.belongsTo(User, { foreignKey: 'purchaserId', as: 'purchaser' });
+GiftVoucher.belongsTo(User, { foreignKey: 'recipientId', as: 'recipient' });
+GiftVoucher.belongsTo(SubscriptionPlan, { foreignKey: 'planId', as: 'plan' });
+
+CreatorVerification.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasOne(CreatorVerification, { foreignKey: 'userId', as: 'creatorVerification' });
+
+MediaSecurityEvent.belongsTo(User, { foreignKey: 'userId', as: 'viewer' });
+MediaSecurityEvent.belongsTo(User, { foreignKey: 'creatorId', as: 'creator' });
+MediaSecurityEvent.belongsTo(Content, { foreignKey: 'contentId', as: 'content' });
+
+User.hasMany(WishlistItem, { foreignKey: 'userId', as: 'wishlistItems' });
+WishlistItem.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+Content.hasMany(WishlistItem, { foreignKey: 'contentId', as: 'wishlistEntries' });
+WishlistItem.belongsTo(Content, { foreignKey: 'contentId', as: 'content' });
+
 // Export all models and sequelize instance
 module.exports = {
   sequelize,
@@ -278,5 +325,15 @@ module.exports = {
   Conversation,
   Notification,
   UserSubscription,
-  ContentPurchase
+  ContentPurchase,
+  ContentBundle,
+  CreatorReferral,
+  TrustReport,
+  LiveStream,
+  CustomRequest,
+  GiftVoucher,
+  CreatorVerification,
+  MediaSecurityEvent,
+  PhoneOtp,
+  WishlistItem,
 };

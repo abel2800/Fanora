@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from 'react-query'
 import { storiesAPI } from '../../services/api'
 import { Avatar } from '../ui/Avatar'
-import { LoadingSpinner } from '../ui/LoadingSpinner'
+import { Skeleton } from '../ui/Skeleton'
 
 export function StoryCarousel() {
   const { data, isLoading } = useQuery(
@@ -13,13 +13,18 @@ export function StoryCarousel() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-4">
-        <LoadingSpinner size="sm" />
+      <div className="flex gap-4 py-4 overflow-hidden">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="flex flex-col items-center gap-2">
+            <Skeleton className="h-14 w-14 rounded-full" />
+            <Skeleton className="h-3 w-12" />
+          </div>
+        ))}
       </div>
     )
   }
 
-  if (!data.length) return null
+  if (!data?.length) return null
 
   return (
     <div className="mb-6 overflow-x-auto">

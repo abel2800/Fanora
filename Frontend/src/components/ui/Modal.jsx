@@ -48,22 +48,22 @@ const Modal = ({
             >
               <Dialog.Panel 
                 className={clsx(
-                  'w-full transform overflow-hidden rounded-xl bg-white text-left align-middle shadow-xl transition-all',
+                  'w-full transform overflow-hidden rounded-xl bg-charcoal-800 text-left align-middle shadow-xl transition-all',
                   sizes[size],
                   className
                 )}
               >
                 {(title || showCloseButton) && (
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-charcoal-700">
                     {title && (
-                      <Dialog.Title className="text-lg font-semibold text-gray-900">
+                      <Dialog.Title className="text-lg font-semibold text-gray-100">
                         {title}
                       </Dialog.Title>
                     )}
                     {showCloseButton && (
                       <button
                         type="button"
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        className="text-gray-400 hover:text-gray-400 transition-colors"
                         onClick={onClose}
                       >
                         <XMarkIcon className="h-6 w-6" />
@@ -91,7 +91,7 @@ const ModalHeader = ({ children, className }) => (
 )
 
 const ModalFooter = ({ children, className }) => (
-  <div className={clsx('flex items-center justify-end space-x-3 pt-4 border-t border-gray-200 mt-6', className)}>
+  <div className={clsx('flex items-center justify-end space-x-3 pt-4 border-t border-charcoal-700 mt-6', className)}>
     {children}
   </div>
 )

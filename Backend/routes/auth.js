@@ -7,6 +7,8 @@ const Wallet = require('../models/Wallet');
 const { auth } = require('../middleware/auth');
 const { validateRegister, validateLogin, validatePasswordChange } = require('../middleware/validation');
 const { sendEmail } = require('../utils/email');
+const { sendOtp, verifyOtp, consumePhoneVerification, normalizePhone } = require('../utils/otp');
+const { sendSms } = require('../services/sms');
 
 const router = express.Router();
 
@@ -31,20 +33,31 @@ router.post('/register', validateRegister, async (req, res) => {
       phoneNumber,
       dateOfBirth
     } = req.body;
+    const normalizedPhoneNumber = normalizePhone(phoneNumber);
 
     // Check if user already exists
     const existingUser = await User.findOne({
       where: {
-        [Op.or]: [{ email }, { username }]
+        [Op.or]: [
+          { email },
+          { username },
+          { phoneNumber: normalizedPhoneNumber },
+          { phoneNumber: normalizedPhoneNumber.replace('+251', '0') },
+        ]
       }
     });
 
     if (existingUser) {
-      return res.status(400).json({
-        message: existingUser.email === email
-          ? 'User with this email already exists'
-          : 'Username already taken'
-      });
+      const msg = existingUser.email === email
+        ? 'User with this email already exists'
+        : existingUser.username === username
+          ? 'Username already taken'
+          : 'Phone number already registered';
+      return res.status(400).json({ message: msg });
+    }
+
+    if (!(await consumePhoneVerification(normalizedPhoneNumber))) {
+      return res.status(400).json({ message: 'Phone number not verified. Complete OTP verification first.' });
     }
 
     // Create new user
@@ -54,7 +67,7 @@ router.post('/register', validateRegister, async (req, res) => {
       password,
       firstName,
       lastName,
-      phoneNumber,
+      phoneNumber: normalizedPhoneNumber,
       dateOfBirth
     });
 
@@ -116,6 +129,103 @@ router.post('/register', validateRegister, async (req, res) => {
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ message: 'Server error during registration' });
+  }
+});
+
+// @route   POST /api/auth/send-otp
+router.post('/send-otp', async (req, res) => {
+  try {
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) return res.status(400).json({ message: 'Phone number is required' });
+
+    const purpose = req.body.purpose === 'login' ? 'login' : 'register';
+    if (purpose === 'login') {
+      const phone = normalizePhone(phoneNumber);
+      const account = await User.findOne({
+        where: {
+          [Op.or]: [
+            { phoneNumber: phone },
+            { phoneNumber: phone.replace('+251', '0') },
+          ],
+        },
+        attributes: ['id'],
+      });
+      if (!account) return res.status(404).json({ message: 'No account found for this phone number' });
+    }
+    const result = await sendOtp(phoneNumber, purpose);
+    if (!result.ok) {
+      return res.status(429).json({ message: result.message, waitSec: result.waitSec });
+    }
+
+    await sendSms({
+      to: result.phone,
+      message: `${result.code} is your Fanora verification code. It expires in 5 minutes. Do not share it.`,
+    });
+
+    const payload = { success: true, message: 'OTP sent', expiresIn: result.expiresIn };
+    if (process.env.NODE_ENV === 'development' && (process.env.SMS_PROVIDER || 'console') === 'console') {
+      payload.devCode = result.code;
+    }
+    res.json(payload);
+  } catch (error) {
+    console.error('Send OTP error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST /api/auth/verify-otp
+router.post('/verify-otp', async (req, res) => {
+  try {
+    const { phoneNumber, code, purpose = 'register' } = req.body;
+    if (!phoneNumber || !code) {
+      return res.status(400).json({ message: 'Phone number and OTP code are required' });
+    }
+
+    const result = await verifyOtp(phoneNumber, code, purpose);
+    if (!result.ok) {
+      return res.status(400).json({ message: result.message });
+    }
+
+    if (purpose === 'login') {
+      const phone = normalizePhone(phoneNumber);
+      const user = await User.findOne({
+        where: {
+          [Op.or]: [
+            { phoneNumber: phone },
+            { phoneNumber: phone.replace('+251', '0') },
+          ],
+        },
+        include: [{ model: Wallet, as: 'wallet' }],
+      });
+      if (!user) {
+        return res.status(404).json({ message: 'No account found for this phone number' });
+      }
+      user.lastActive = new Date();
+      user.isOnline = true;
+      await user.save();
+      const token = generateToken(user.id);
+      return res.json({
+        success: true,
+        message: 'Login successful',
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          profileImage: user.profileImage,
+          isCreator: user.isCreator,
+          isVerified: user.isVerified,
+          role: user.role,
+        },
+      });
+    }
+
+    res.json({ success: true, message: 'Phone verified', phoneVerified: true });
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -276,8 +386,9 @@ router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
 
     const user = await User.findOne({ where: { email } });
+    // Always return success to avoid account enumeration
     if (!user) {
-      return res.status(404).json({ message: 'No user found with this email address' });
+      return res.json({ message: 'If an account exists with that email, a reset link has been sent' });
     }
 
     // Generate password reset token
@@ -286,9 +397,76 @@ router.post('/forgot-password', async (req, res) => {
     user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await user.save();
 
-    res.json({ message: 'Password reset email sent successfully' });
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/reset-password/${resetToken}`;
+    try {
+      const { emailTemplates } = require('../utils/email');
+      const template = emailTemplates.passwordReset(user.firstName || user.username, resetUrl);
+      await sendEmail({
+        to: user.email,
+        subject: template.subject,
+        html: template.html,
+      });
+    } catch (emailError) {
+      console.error('Password reset email failed:', emailError.message);
+      // Still return success; token is stored for manual/dev use
+      if (process.env.NODE_ENV === 'development') {
+        return res.json({
+          message: 'If an account exists with that email, a reset link has been sent',
+          devResetToken: resetToken,
+          devResetUrl: resetUrl,
+        });
+      }
+    }
+
+    res.json({ message: 'If an account exists with that email, a reset link has been sent' });
   } catch (error) {
     console.error('Forgot password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   POST /api/auth/resend-verification
+// @desc    Resend email verification
+// @access  Private
+router.post('/resend-verification', auth, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    if (user.isEmailVerified) {
+      return res.status(400).json({ message: 'Email is already verified' });
+    }
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    user.emailVerificationToken = verificationToken;
+    user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await user.save();
+
+    const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/verify-email/${verificationToken}`;
+    try {
+      const { emailTemplates } = require('../utils/email');
+      const template = emailTemplates.emailVerification
+        ? emailTemplates.emailVerification(user.firstName || user.username, verifyUrl)
+        : {
+            subject: 'Verify your Fanora email',
+            html: `<p>Hello ${user.firstName || user.username},</p><p><a href="${verifyUrl}">Verify Email</a></p>`,
+          };
+      await sendEmail({ to: user.email, subject: template.subject, html: template.html });
+    } catch (emailError) {
+      console.error('Resend verification email failed:', emailError.message);
+      if (process.env.NODE_ENV === 'development') {
+        return res.json({
+          message: 'Verification email sent',
+          devVerificationToken: verificationToken,
+          devVerifyUrl: verifyUrl,
+        });
+      }
+    }
+
+    res.json({ message: 'Verification email sent' });
+  } catch (error) {
+    console.error('Resend verification error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

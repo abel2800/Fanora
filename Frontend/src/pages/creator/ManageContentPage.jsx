@@ -1,27 +1,38 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { contentAPI } from '../../services/api'
+import { useI18n } from '../../contexts/I18nContext'
 import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Modal } from '../../components/ui/Modal'
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
+import { PageSkeleton } from '../../components/ui/Skeleton'
 import { PencilIcon, TrashIcon, EyeIcon } from '@heroicons/react/24/outline'
+import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
 
 export function ManageContentPage() {
+  const { t } = useI18n()
   const queryClient = useQueryClient()
+  const { user } = useAuth()
+  const creatorId = user?.id
   const [page, setPage] = useState(1)
   const [filter, setFilter] = useState('all')
   const [editingContent, setEditingContent] = useState(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editFormData, setEditFormData] = useState({ title: '', description: '' })
 
+  const filters = [
+    { key: 'all', labelKey: 'all' },
+    { key: 'published', labelKey: 'published' },
+    { key: 'draft', labelKey: 'draft' },
+  ]
+
   const { data: content = [], isLoading } = useQuery(
-    ['my-content', page, filter],
-    () => contentAPI.getCreatorContent(null, { page, limit: 20, status: filter }).then(res => res.data?.data || []),
-    { onError: () => toast.error('Failed to load content') }
+    ['my-content', creatorId, page, filter],
+    () => contentAPI.getCreatorContent(creatorId, { page, limit: 20, status: filter }).then(res => res.data?.data || []),
+    { enabled: !!creatorId, onError: () => toast.error(t('failedToLoadContent')) }
   )
 
   const deleteMutation = useMutation(
@@ -29,9 +40,9 @@ export function ManageContentPage() {
     {
       onSuccess: () => {
         queryClient.invalidateQueries('my-content')
-        toast.success('Content deleted')
+        toast.success(t('contentDeleted'))
       },
-      onError: () => toast.error('Failed to delete content')
+      onError: () => toast.error(t('failedToDeleteContent'))
     }
   )
 
@@ -41,14 +52,14 @@ export function ManageContentPage() {
       onSuccess: () => {
         queryClient.invalidateQueries('my-content')
         setShowEditModal(false)
-        toast.success('Content updated')
+        toast.success(t('contentUpdated'))
       },
-      onError: () => toast.error('Failed to update content')
+      onError: () => toast.error(t('failedToUpdateContent'))
     }
   )
 
   const handleDelete = (contentId) => {
-    if (confirm('Are you sure you want to delete this content?')) {
+    if (confirm(t('confirmDeleteContent'))) {
       deleteMutation.mutate(contentId)
     }
   }
@@ -66,7 +77,7 @@ export function ManageContentPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-charcoal-900 flex items-center justify-center">
-        <LoadingSpinner />
+        <PageSkeleton />
       </div>
     )
   }
@@ -74,26 +85,24 @@ export function ManageContentPage() {
   return (
     <div className="min-h-screen bg-charcoal-900 pb-12">
       <div className="max-w-6xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-100 mb-8">Manage Content</h1>
+        <h1 className="text-3xl font-bold text-gray-100 mb-8">{t('manageContent')}</h1>
 
-        {/* Filters */}
         <div className="mb-6 flex gap-2">
-          {['all', 'published', 'draft'].map(status => (
+          {filters.map(({ key, labelKey }) => (
             <button
-              key={status}
-              onClick={() => { setFilter(status); setPage(1) }}
+              key={key}
+              onClick={() => { setFilter(key); setPage(1) }}
               className={`px-4 py-2 rounded-lg transition capitalize ${
-                filter === status
+                filter === key
                   ? 'bg-primary-500 text-white'
                   : 'bg-charcoal-800 text-gray-300 hover:bg-charcoal-700'
               }`}
             >
-              {status}
+              {t(labelKey)}
             </button>
           ))}
         </div>
 
-        {/* Content Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {content.length > 0 ? (
             content.map(item => (
@@ -112,9 +121,9 @@ export function ManageContentPage() {
                   <h3 className="font-semibold text-gray-100 mb-2 line-clamp-1">{item.title}</h3>
                   <div className="flex items-center gap-2 mb-3">
                     <Badge variant={item.status === 'published' ? 'success' : 'secondary'}>
-                      {item.status}
+                      {t(item.status) || item.status}
                     </Badge>
-                    <Badge variant="outline">{item.viewsCount} views</Badge>
+                    <Badge variant="outline">{item.viewsCount} {t('views')}</Badge>
                   </div>
                   <p className="text-xs text-gray-400 mb-4">{new Date(item.createdAt).toLocaleDateString()}</p>
                   <div className="flex gap-2">
@@ -130,24 +139,23 @@ export function ManageContentPage() {
             ))
           ) : (
             <div className="col-span-full text-center py-12">
-              <p className="text-gray-400">No content found</p>
+              <p className="text-gray-400">{t('noContentFound')}</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Edit Modal */}
-      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Content">
+      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title={t('editContent')}>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-300 mb-2">Title</label>
+            <label className="block text-sm font-semibold text-gray-300 mb-2">{t('titleLabel')}</label>
             <Input
               value={editFormData.title}
               onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-300 mb-2">Description</label>
+            <label className="block text-sm font-semibold text-gray-300 mb-2">{t('description')}</label>
             <Input
               value={editFormData.description}
               onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
@@ -155,10 +163,10 @@ export function ManageContentPage() {
           </div>
           <div className="flex gap-3 pt-4 border-t border-charcoal-700">
             <Button onClick={() => setShowEditModal(false)} variant="secondary" className="flex-1">
-              Cancel
+              {t('cancel')}
             </Button>
             <Button onClick={handleSaveEdit} variant="primary" className="flex-1" disabled={updateMutation.isLoading}>
-              Save
+              {t('save')}
             </Button>
           </div>
         </div>

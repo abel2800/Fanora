@@ -44,12 +44,12 @@ export function HomePage() {
               <span className="text-primary-600 font-semibold">Welcome to Fanora</span>
             </div>
             
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+            <h1 className="text-4xl md:text-6xl font-bold text-gray-100 mb-6">
               Support
               <span className="block text-primary-600">Content Creators</span>
             </h1>
             
-            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+            <p className="text-xl text-gray-400 mb-8 max-w-3xl mx-auto">
               Join Fanora, the premier creator platform. Subscribe to exclusive content, 
               support talent, and connect with creators using familiar payment methods.
             </p>
@@ -72,7 +72,7 @@ export function HomePage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-16 bg-white">
+      <section className="py-16 bg-charcoal-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
@@ -80,7 +80,7 @@ export function HomePage() {
                 <div className="text-3xl md:text-4xl font-bold text-primary-600 mb-2">
                   {stat.value}
                 </div>
-                <div className="text-gray-600">{stat.label}</div>
+                <div className="text-gray-400">{stat.label}</div>
               </div>
             ))}
           </div>
@@ -88,13 +88,13 @@ export function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-20 bg-charcoal-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-100 mb-4">
               Why Choose Fanora?
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
               Built for creators and supporters on Fanora, 
               with local payment methods and a seamless experience.
             </p>
@@ -102,14 +102,14 @@ export function HomePage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {features.map((feature, index) => (
-              <div key={index} className="text-center p-6 bg-white rounded-xl shadow-sm">
+              <div key={index} className="text-center p-6 bg-charcoal-800 rounded-xl shadow-sm">
                 <div className="mx-auto h-12 w-12 bg-primary-100 rounded-lg flex items-center justify-center mb-4">
                   <feature.icon className="h-6 w-6 text-primary-600" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                <h3 className="text-xl font-semibold text-gray-100 mb-2">
                   {feature.title}
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-gray-400">
                   {feature.description}
                 </p>
               </div>
@@ -136,7 +136,7 @@ export function HomePage() {
               </Button>
             </Link>
             <Link to="/auth/register">
-              <Button variant="outline" size="xl" className="w-full sm:w-auto border-white text-white hover:bg-white hover:text-primary-600">
+              <Button variant="outline" size="xl" className="w-full sm:w-auto border-white text-white hover:bg-charcoal-800 hover:text-primary-600">
                 Become Creator
               </Button>
             </Link>

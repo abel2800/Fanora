@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { authAPI } from '../services/api'
 import Cookies from 'js-cookie'
+import { useI18n } from './I18nContext'
 
 const AuthContext = createContext({})
 
@@ -11,6 +12,7 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const navigate = useNavigate()
+  const { t } = useI18n()
 
   // Check if user is authenticated on app load
   useEffect(() => {
@@ -43,31 +45,31 @@ export function AuthProvider({ children }) {
     try {
       setIsLoading(true)
       const response = await authAPI.login(credentials)
-      
+
       const { token, user: userData } = response.data
-      
+
       // Store token in cookies
-      Cookies.set('token', token, { 
+      Cookies.set('token', token, {
         expires: 30, // 30 days
-        secure: process.env.NODE_ENV === 'production',
+        secure: import.meta.env.PROD,
         sameSite: 'strict'
       })
-      
+
       setUser(userData)
       setIsAuthenticated(true)
-      
-      toast.success('Welcome back!')
-      
+
+      toast.success(t('welcomeBack'))
+
       // Redirect based on user type
       if (userData.isCreator) {
         navigate('/creator/dashboard')
       } else {
         navigate('/home')
       }
-      
+
       return response.data
     } catch (error) {
-      const message = error.response?.data?.message || 'Login failed'
+      const message = error.response?.data?.message || t('loginFailed')
       toast.error(message)
       throw error
     } finally {
@@ -79,25 +81,25 @@ export function AuthProvider({ children }) {
     try {
       setIsLoading(true)
       const response = await authAPI.register(userData)
-      
+
       const { token, user: newUser } = response.data
-      
+
       // Store token in cookies
-      Cookies.set('token', token, { 
+      Cookies.set('token', token, {
         expires: 30,
-        secure: process.env.NODE_ENV === 'production',
+        secure: import.meta.env.PROD,
         sameSite: 'strict'
       })
-      
+
       setUser(newUser)
       setIsAuthenticated(true)
-      
-      toast.success('Account created successfully!')
+
+      toast.success(t('accountCreatedSuccessfully'))
       navigate('/home')
-      
+
       return response.data
     } catch (error) {
-      const message = error.response?.data?.message || 'Registration failed'
+      const message = error.response?.data?.message || t('registrationFailed')
       toast.error(message)
       throw error
     } finally {
@@ -115,7 +117,7 @@ export function AuthProvider({ children }) {
       Cookies.remove('token')
       setUser(null)
       setIsAuthenticated(false)
-      toast.success('Logged out successfully')
+      toast.success(t('loggedOutSuccessfully'))
       navigate('/')
     }
   }
@@ -127,16 +129,16 @@ export function AuthProvider({ children }) {
   const becomeCreator = async () => {
     try {
       const response = await authAPI.becomeCreator()
-      setUser(prev => ({ 
-        ...prev, 
-        isCreator: true, 
-        role: 'creator' 
+      setUser(prev => ({
+        ...prev,
+        isCreator: true,
+        role: 'creator'
       }))
-      toast.success('You are now a creator!')
+      toast.success(t('nowACreator'))
       navigate('/creator/dashboard')
       return response.data
     } catch (error) {
-      const message = error.response?.data?.message || 'Failed to become creator'
+      const message = error.response?.data?.message || t('failedBecomeCreator')
       toast.error(message)
       throw error
     }
@@ -145,10 +147,10 @@ export function AuthProvider({ children }) {
   const forgotPassword = async (email) => {
     try {
       const response = await authAPI.forgotPassword({ email })
-      toast.success('Password reset email sent!')
+      toast.success(t('passwordResetEmailSent'))
       return response.data
     } catch (error) {
-      const message = error.response?.data?.message || 'Failed to send reset email'
+      const message = error.response?.data?.message || t('failedToSendResetEmail')
       toast.error(message)
       throw error
     }
@@ -157,11 +159,11 @@ export function AuthProvider({ children }) {
   const resetPassword = async (token, password) => {
     try {
       const response = await authAPI.resetPassword(token, { password })
-      toast.success('Password reset successfully!')
+      toast.success(t('passwordResetSuccessfully'))
       navigate('/auth/login')
       return response.data
     } catch (error) {
-      const message = error.response?.data?.message || 'Failed to reset password'
+      const message = error.response?.data?.message || t('failedToResetPassword')
       toast.error(message)
       throw error
     }
@@ -172,10 +174,10 @@ export function AuthProvider({ children }) {
       const response = await authAPI.verifyEmail(token)
       // Refresh user data
       await checkAuth()
-      toast.success('Email verified successfully!')
+      toast.success(t('emailVerifiedSuccessfully'))
       return response.data
     } catch (error) {
-      const message = error.response?.data?.message || 'Email verification failed'
+      const message = error.response?.data?.message || t('emailVerificationFailed')
       toast.error(message)
       throw error
     }
@@ -184,10 +186,10 @@ export function AuthProvider({ children }) {
   const resendVerification = async () => {
     try {
       const response = await authAPI.resendVerification()
-      toast.success('Verification email sent!')
+      toast.success(t('verificationEmailSent'))
       return response.data
     } catch (error) {
-      const message = error.response?.data?.message || 'Failed to send verification email'
+      const message = error.response?.data?.message || t('failedSendVerificationEmail')
       toast.error(message)
       throw error
     }
@@ -196,12 +198,38 @@ export function AuthProvider({ children }) {
   const changePassword = async (passwords) => {
     try {
       const response = await authAPI.changePassword(passwords)
-      toast.success('Password changed successfully!')
+      toast.success(t('passwordChanged'))
       return response.data
     } catch (error) {
-      const message = error.response?.data?.message || 'Failed to change password'
+      const message = error.response?.data?.message || t('failedToChangePassword')
       toast.error(message)
       throw error
+    }
+  }
+
+  const loginWithOtp = async ({ phoneNumber, code }) => {
+    try {
+      setIsLoading(true)
+      const response = await authAPI.verifyOtp({ phoneNumber, code, purpose: 'login' })
+      const { token, user: userData } = response.data
+
+      Cookies.set('token', token, {
+        expires: 30,
+        secure: import.meta.env.PROD,
+        sameSite: 'strict',
+      })
+
+      setUser(userData)
+      setIsAuthenticated(true)
+      toast.success(t('welcomeBack'))
+      navigate(userData.isCreator ? '/creator/dashboard' : '/home')
+      return response.data
+    } catch (error) {
+      const message = error.response?.data?.message || t('otpLoginFailed')
+      toast.error(message)
+      throw error
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -210,6 +238,7 @@ export function AuthProvider({ children }) {
     isLoading,
     isAuthenticated,
     login,
+    loginWithOtp,
     register,
     logout,
     updateUser,

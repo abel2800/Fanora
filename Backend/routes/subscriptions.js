@@ -14,10 +14,10 @@ const CREATOR_PERCENTAGE = 0.70; // Creator gets 70%
 // @access  Private (Creator)
 router.post('/plans', auth, isCreator, isEmailVerified, async (req, res) => {
   try {
-    const { name, description, price, durationInDays, benefits, isPublic } = req.body;
+    const { name, description, price, durationInDays, duration, benefits, features, isPublic } = req.body;
 
     // Validation
-    if (!name || !price || !durationInDays) {
+    if (!name || !price || (!durationInDays && !duration)) {
       return res.status(400).json({ message: 'Name, price, and duration are required' });
     }
 
@@ -25,9 +25,14 @@ router.post('/plans', auth, isCreator, isEmailVerified, async (req, res) => {
       return res.status(400).json({ message: 'Price must be greater than 0' });
     }
 
-    if (parseInt(durationInDays) <= 0) {
+    const days = parseInt(durationInDays) || 30;
+    if (days <= 0) {
       return res.status(400).json({ message: 'Duration must be greater than 0' });
     }
+
+    const durationMap = { 7: 'weekly', 30: 'monthly', 90: 'quarterly', 365: 'yearly' };
+    const resolvedDuration = duration || durationMap[days] || 'monthly';
+    const planFeatures = features || benefits || [];
 
     const plan = await SubscriptionPlan.create({
       creatorId: req.user.id,
@@ -35,8 +40,9 @@ router.post('/plans', auth, isCreator, isEmailVerified, async (req, res) => {
       description: description || '',
       price: parseFloat(price),
       currency: 'ETB',
-      durationInDays: parseInt(durationInDays),
-      benefits: benefits ? (typeof benefits === 'string' ? JSON.parse(benefits) : benefits) : [],
+      duration: resolvedDuration,
+      durationInDays: days,
+      features: typeof planFeatures === 'string' ? JSON.parse(planFeatures) : planFeatures,
       isPublic: isPublic !== 'false',
       isActive: true,
       activeSubscribers: 0
@@ -130,7 +136,7 @@ router.put('/plans/:planId', auth, isCreator, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    const { name, description, price, durationInDays, benefits, isPublic, isActive } = req.body;
+    const { name, description, price, durationInDays, benefits, features, isPublic, isActive } = req.body;
 
     // Cannot change price for active subscriptions (would deprecate plan instead)
     if (price && parseFloat(price) !== parseFloat(plan.price)) {
@@ -151,7 +157,8 @@ router.put('/plans/:planId', auth, isCreator, async (req, res) => {
     if (description !== undefined) updateData.description = description;
     if (price) updateData.price = parseFloat(price);
     if (durationInDays) updateData.durationInDays = parseInt(durationInDays);
-    if (benefits) updateData.benefits = typeof benefits === 'string' ? JSON.parse(benefits) : benefits;
+    const planFeatures = features || benefits;
+    if (planFeatures) updateData.features = typeof planFeatures === 'string' ? JSON.parse(planFeatures) : planFeatures;
     if (isPublic !== undefined) updateData.isPublic = isPublic !== 'false';
     if (isActive !== undefined) updateData.isActive = isActive !== 'false';
 
@@ -247,9 +254,12 @@ router.post('/subscribe/:planId', auth, async (req, res) => {
       userId: req.user.id,
       walletId: wallet.id,
       amount: plan.price,
-      type: 'subscription',
+      type: 'subscription_payment',
       status: 'completed',
       description: `Subscription to ${plan.name}`,
+      reference: `SUB-${Date.now()}-${req.user.id.slice(0, 8)}`,
+      paymentMethodType: 'wallet_transfer',
+      platformFee: platformEarnings,
       metadata: {
         planId: req.params.planId,
         creatorId: plan.creatorId,
@@ -359,6 +369,21 @@ router.post('/cancel/:subscriptionId', auth, async (req, res) => {
   }
 });
 
+router.post('/pause/:subscriptionId', auth, async (req, res) => {
+  try {
+    const subscription = await UserSubscription.findByPk(req.params.subscriptionId);
+    if (!subscription) return res.status(404).json({ message: 'Subscription not found' });
+    if (subscription.userId !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
+    if (subscription.status !== 'active') {
+      return res.status(400).json({ message: 'Subscription is not active' });
+    }
+    await subscription.update({ status: 'paused', autoRenewal: false });
+    res.json({ success: true, message: 'Subscription paused' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ============= GET MY SUBSCRIPTIONS =============
 // @route   GET /api/subscriptions/my
 // @desc    Get user's active subscriptions
@@ -390,6 +415,22 @@ router.get('/my', auth, async (req, res) => {
   }
 });
 
+// @route   POST /api/subscriptions/pause/:subscriptionId
+router.post('/pause/:subscriptionId', auth, async (req, res) => {
+  try {
+    const subscription = await UserSubscription.findByPk(req.params.subscriptionId);
+    if (!subscription) return res.status(404).json({ message: 'Subscription not found' });
+    if (subscription.userId !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
+    if (subscription.status !== 'active') {
+      return res.status(400).json({ message: 'Subscription is not active' });
+    }
+    await subscription.update({ status: 'paused', autoRenewal: false });
+    res.json({ success: true, message: 'Subscription paused' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ============= GET PLAN SUBSCRIBERS =============
 // @route   GET /api/subscriptions/subscribers/:planId
 // @desc    Get subscribers for a plan (Creator only)
@@ -401,31 +442,58 @@ router.get('/subscribers/:planId', auth, isCreator, async (req, res) => {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
     const offset = (pageNum - 1) * limitNum;
 
-    const plan = await SubscriptionPlan.findByPk(req.params.planId);
-
-    if (!plan) {
-      return res.status(404).json({ message: 'Plan not found' });
-    }
-
-    if (plan.creatorId !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
+    const allPlans = req.params.planId === 'all' || req.params.planId === 'null';
+    const creatorPlans = await SubscriptionPlan.findAll({
+      where: {
+        creatorId: req.user.id,
+        ...(allPlans ? {} : { id: req.params.planId }),
+      },
+      attributes: ['id', 'name', 'price'],
+    });
+    if (!creatorPlans.length) return res.status(404).json({ message: 'Plan not found' });
+    const planIds = creatorPlans.map((plan) => plan.id);
 
     const { count, rows: subscribers } = await UserSubscription.findAndCountAll({
       where: {
-        planId: req.params.planId,
+        planId: { [Op.in]: planIds },
         status: 'active'
       },
-      include: [{ model: User, as: 'subscriber', attributes: ['id', 'username', 'profileImage', 'isVerified'] }],
+      include: [
+        { model: User, as: 'subscriber', attributes: ['id', 'username', 'profileImage', 'isVerified', 'settings'] },
+        { model: SubscriptionPlan, as: 'plan', attributes: ['id', 'name', 'price'] },
+      ],
       order: [['startDate', 'DESC']],
       offset,
       limit: limitNum,
       distinct: true
     });
 
+    const masked = subscribers.map((sub) => {
+      const json = sub.toJSON();
+      const subscriber = json.subscriber;
+      const privacy = subscriber?.settings?.privacy || {};
+      const tenureMonths = Math.max(1, Math.floor((Date.now() - new Date(json.startDate).getTime()) / (30 * 24 * 60 * 60 * 1000)));
+      const lifetimeSpend = tenureMonths * Number(json.plan?.price || 0);
+      const loyaltyBadge = tenureMonths >= 12 || lifetimeSpend >= 5000
+        ? 'gold'
+        : tenureMonths >= 3 || lifetimeSpend >= 1000
+          ? 'silver'
+          : 'bronze';
+      json.loyalty = { badge: loyaltyBadge, tenureMonths, lifetimeSpend };
+      if (privacy.incognitoMode || privacy.hideFromSubscriberSearch) {
+        json.subscriber = {
+          ...subscriber,
+          username: privacy.disguisedDisplayName || 'Fan',
+          profileImage: null,
+          isIncognito: true,
+        };
+      }
+      return json;
+    });
+
     res.json({
       success: true,
-      data: subscribers,
+      data: masked,
       pagination: {
         page: pageNum,
         limit: limitNum,

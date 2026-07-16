@@ -172,6 +172,11 @@ const Content = sequelize.define('Content', {
     field: 'series_season',
   },
   // Monetization settings
+  allowComments: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+    field: 'allow_comments',
+  },
   allowTips: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,

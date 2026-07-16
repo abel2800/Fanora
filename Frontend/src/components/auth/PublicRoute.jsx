@@ -1,17 +1,16 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { PageLoader } from '../ui/LoadingSpinner'
+import { PageSkeleton } from '../ui/Skeleton'
 
 export function PublicRoute({ children }) {
   const { isAuthenticated, isLoading, user } = useAuth()
 
   if (isLoading) {
-    return <PageLoader text="Loading..." />
+    return <PageSkeleton />
   }
 
   if (isAuthenticated) {
-    // Redirect authenticated users to appropriate dashboard
-    const redirectPath = user?.isCreator ? '/creator' : '/dashboard'
+    const redirectPath = user?.isCreator ? '/creator/dashboard' : '/home'
     return <Navigate to={redirectPath} replace />
   }
 

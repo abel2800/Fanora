@@ -9,73 +9,70 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Fanora Premium Theme - Purple + Gold + Navy
+        // Fanora v2 — warm gold on near-black
         primary: {
-          50: '#fff1f2',
-          100: '#ffe4e6',
-          200: '#fecdd3',
-          300: '#fda4af',
-          400: '#fb7185',
-          500: '#ff1493', // Hot Pink Primary
-          600: '#ff0080',
-          700: '#ff006b',
-          800: '#ff0055',
-          900: '#ff0040',
+          50: '#FBF6E8',
+          100: '#F5EBCE',
+          200: '#EDD9A0',
+          300: '#E9C46A', // accent
+          400: '#D4AE52', // accent-press
+          500: '#E9C46A',
+          600: '#D4AE52',
+          700: '#B8943F',
+          800: '#9A7A32',
+          900: '#7C6128',
         },
         secondary: {
-          50: '#fffbeb',
-          100: '#fef3c7',
-          200: '#fde68a',
-          300: '#fcd34d',
-          400: '#fbbf24',
-          500: '#f59e0b', // Gold Accent
-          600: '#d97706',
-          700: '#b45309',
-          800: '#92400e',
-          900: '#78350f',
+          50: '#F5F6F8',
+          100: '#E8EAEE',
+          200: '#C5C9D2',
+          300: '#8A8F9C', // text-muted
+          400: '#6B7080',
+          500: '#4A4F5C',
+          600: '#353945',
+          700: '#252830',
+          800: '#1C202B', // bg-elevated
+          900: '#15181F', // bg-surface
         },
-        // Navy background theme
         navy: {
-          50: '#f8fafc',
-          100: '#f1f5f9',
-          200: '#e2e8f0',
-          300: '#cbd5e1',
-          400: '#94a3b8',
-          500: '#64748b',
-          600: '#475569',
-          700: '#334155',
-          800: '#1e293b',
-          900: '#0f172a', // Dark navy background
+          50: '#F5F6F8',
+          100: '#E8EAEE',
+          200: '#C5C9D2',
+          300: '#8A8F9C',
+          400: '#6B7080',
+          500: '#4A4F5C',
+          600: '#353945',
+          700: '#252830',
+          800: '#1C202B',
+          900: '#0B0D12', // bg-primary
         },
-        // Keep old colors for compatibility
         charcoal: {
-          50: '#f8f8f8',
-          100: '#f0f0f0',
-          200: '#e0e0e0',
-          300: '#c0c0c0',
-          400: '#999999',
-          500: '#666666',
-          600: '#404040',
-          700: '#2d2d2d',
-          800: '#1a1a1e',
-          900: '#0f0f12',
+          50: '#F5F6F8',
+          100: '#E8EAEE',
+          200: '#C5C9D2',
+          300: '#8A8F9C',
+          400: '#6B7080',
+          500: '#4A4F5C',
+          600: '#353945',
+          700: '#252830',
+          800: '#1C202B',
+          900: '#0B0D12',
         },
         success: {
           50: '#f0fdf4',
-          500: '#22c55e',
-          600: '#16a34a',
+          500: '#4ADE80',
+          600: '#22c55e',
         },
         warning: {
           50: '#fffbeb',
-          500: '#f59e0b',
-          600: '#d97706',
+          500: '#E9C46A',
+          600: '#D4AE52',
         },
         error: {
           50: '#fef2f2',
-          500: '#ef4444',
+          500: '#E85C5C',
           600: '#dc2626',
         },
-        // Ethiopian flag inspired (accents)
         ethiopian: {
           green: '#009639',
           yellow: '#FEDD00',
@@ -84,6 +81,18 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Fraunces', 'Georgia', 'serif'],
+      },
+      borderRadius: {
+        card: '16px',
+        sheet: '24px',
+        pill: '999px',
+      },
+      transitionDuration: {
+        DEFAULT: '220ms',
+      },
+      transitionTimingFunction: {
+        DEFAULT: 'cubic-bezier(0.34, 1.2, 0.64, 1)',
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-in-out',

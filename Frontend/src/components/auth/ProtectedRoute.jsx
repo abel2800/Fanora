@@ -1,13 +1,13 @@
-import { Navigate, useLocation } from 'react-router-dom'
+import { Navigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { PageLoader } from '../ui/LoadingSpinner'
+import { PageSkeleton } from '../ui/Skeleton'
 
 export function ProtectedRoute({ children, requireCreator = false, requireEmailVerified = false }) {
   const { user, isAuthenticated, isLoading } = useAuth()
   const location = useLocation()
 
   if (isLoading) {
-    return <PageLoader text="Checking authentication..." />
+    return <PageSkeleton />
   }
 
   if (!isAuthenticated) {
@@ -17,8 +17,8 @@ export function ProtectedRoute({ children, requireCreator = false, requireEmailV
 
   if (requireEmailVerified && !user?.isEmailVerified) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
+      <div className="min-h-screen flex items-center justify-center bg-charcoal-900 px-4">
+        <div className="max-w-md w-full bg-charcoal-800 rounded-card border border-charcoal-700 shadow-lg p-6 text-center">
           <div className="mb-4">
             <div className="mx-auto h-12 w-12 bg-yellow-100 rounded-full flex items-center justify-center">
               <svg className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -26,20 +26,15 @@ export function ProtectedRoute({ children, requireCreator = false, requireEmailV
               </svg>
             </div>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Email Verification Required</h3>
-          <p className="text-gray-600 mb-4">
+          <h3 className="text-lg font-medium text-gray-100 mb-2">Email Verification Required</h3>
+          <p className="text-gray-400 mb-4">
             Please verify your email address to access this feature.
           </p>
           <div className="space-y-2">
-            <button
-              onClick={() => {
-                // Implement resend verification
-              }}
-              className="btn-primary btn-md w-full"
-            >
-              Resend Verification Email
-            </button>
-            <Navigate to="/dashboard" />
+            <Link to="/auth/verify-email" className="btn-primary btn-md block w-full">
+              Verify email
+            </Link>
+            <Link to="/home" className="block text-sm text-gray-400 hover:text-primary-500">Back home</Link>
           </div>
         </div>
       </div>
@@ -48,8 +43,8 @@ export function ProtectedRoute({ children, requireCreator = false, requireEmailV
 
   if (requireCreator && !user?.isCreator) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
+      <div className="min-h-screen flex items-center justify-center bg-charcoal-900 px-4">
+        <div className="max-w-md w-full bg-charcoal-800 rounded-card border border-charcoal-700 shadow-lg p-6 text-center">
           <div className="mb-4">
             <div className="mx-auto h-12 w-12 bg-primary-100 rounded-full flex items-center justify-center">
               <svg className="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -57,20 +52,15 @@ export function ProtectedRoute({ children, requireCreator = false, requireEmailV
               </svg>
             </div>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Creator Account Required</h3>
-          <p className="text-gray-600 mb-4">
+          <h3 className="text-lg font-medium text-gray-100 mb-2">Creator Account Required</h3>
+          <p className="text-gray-400 mb-4">
             You need a creator account to access this feature. Become a creator to start sharing content and earning money.
           </p>
           <div className="space-y-2">
-            <button
-              onClick={() => {
-                // Implement become creator
-              }}
-              className="btn-primary btn-md w-full"
-            >
+            <Link to="/creator/onboarding" className="btn-primary btn-md block w-full">
               Become a Creator
-            </button>
-            <Navigate to="/dashboard" />
+            </Link>
+            <Link to="/home" className="block text-sm text-gray-400 hover:text-primary-500">Back home</Link>
           </div>
         </div>
       </div>

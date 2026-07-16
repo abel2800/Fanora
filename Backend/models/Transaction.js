@@ -26,7 +26,17 @@ const Transaction = sequelize.define('Transaction', {
     },
   },
   type: {
-    type: DataTypes.ENUM('deposit', 'withdrawal', 'subscription_payment', 'tip', 'refund', 'commission'),
+    type: DataTypes.ENUM(
+      'deposit',
+      'topup',
+      'withdrawal',
+      'subscription',
+      'subscription_payment',
+      'tip',
+      'refund',
+      'commission',
+      'content_purchase'
+    ),
     allowNull: false,
   },
   amount: {
@@ -163,12 +173,12 @@ Transaction.beforeCreate((transaction) => {
     const random = Math.random().toString(36).substring(2, 8).toUpperCase();
     transaction.reference = `TXN-${timestamp}-${random}`;
   }
-  
+
   // Set initiated_at if not set
   if (!transaction.initiatedAt) {
     transaction.initiatedAt = new Date();
   }
-  
+
   // Calculate total fees
   const platformFee = parseFloat(transaction.platformFee) || 0;
   const gatewayFee = parseFloat(transaction.paymentGatewayFee) || 0;

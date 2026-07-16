@@ -32,9 +32,24 @@ router.get('/', auth, async (req, res) => {
       limit: limitNum,
     });
 
+    const data = rows.map((notification) => {
+      const item = notification.toJSON();
+      if (!item.data?.deepLink) {
+        const fallback = item.relatedContentId
+          ? `/content/${item.relatedContentId}`
+          : item.relatedUserId && item.type === 'message_received'
+            ? `/messages/${item.relatedUserId}`
+            : item.relatedUserId
+              ? `/creator/${item.relatedUser?.username || ''}`
+              : '/notifications';
+        item.data = { ...(item.data || {}), deepLink: fallback };
+      }
+      return item;
+    });
+
     res.json({
       success: true,
-      data: rows,
+      data,
       pagination: {
         page: pageNum,
         limit: limitNum,

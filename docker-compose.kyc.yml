@@ -1,0 +1,28 @@
+services:
+  kyc:
+    build:
+      context: ./KycService
+    ports:
+      - "127.0.0.1:8001:8000"
+    environment:
+      KYC_SERVICE_TOKEN: ${KYC_SERVICE_TOKEN:-}
+      KYC_OCR_LANGUAGES: ${KYC_OCR_LANGUAGES:-eng+amh}
+      KYC_MAX_IMAGE_BYTES: ${KYC_MAX_IMAGE_BYTES:-8388608}
+      KYC_DOWNLOAD_TIMEOUT_SECONDS: ${KYC_DOWNLOAD_TIMEOUT_SECONDS:-10}
+      KYC_FACE_MATCH_THRESHOLD: ${KYC_FACE_MATCH_THRESHOLD:-0.68}
+      KYC_FACE_DETECTION_THRESHOLD: ${KYC_FACE_DETECTION_THRESHOLD:-0.9}
+      KYC_YUNET_MODEL_PATH: ${KYC_YUNET_MODEL_PATH:-/models/opencv_zoo/face_detection_yunet_2023mar.onnx}
+      KYC_SFACE_MODEL_PATH: ${KYC_SFACE_MODEL_PATH:-/models/opencv_zoo/face_recognition_sface_2021dec.onnx}
+      KYC_DEV_ALLOWED_HOSTS: ${KYC_DEV_ALLOWED_HOSTS:-host.docker.internal}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    tmpfs:
+      - /tmp:size=64m
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped

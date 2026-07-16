@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { useQuery } from 'react-query'
+import { useQuery, useMutation, useQueryClient } from 'react-query'
+import { subscriptionsAPI } from '../../services/api'
+import { useI18n } from '../../contexts/I18nContext'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
@@ -18,32 +20,49 @@ import {
 import toast from 'react-hot-toast'
 
 export function SubscriptionPlansPage() {
-  const [plans, setPlans] = useState([
+  const { t } = useI18n()
+  const queryClient = useQueryClient()
+
+  const { data: plans = [], isLoading } = useQuery(
+    ['my-subscription-plans'],
+    () => subscriptionsAPI.getMyPlans().then(res => res.data?.data || []),
+    { onError: () => toast.error(t('failedToLoadPlans')) }
+  )
+
+  const createMutation = useMutation(
+    (data) => subscriptionsAPI.createPlan(data),
     {
-      id: 1,
-      name: 'Supporter',
-      price: 99,
-      description: 'Get exclusive content',
-      subscribers: 245,
-      monthlyRevenue: 24255,
-      features: ['Exclusive photos', 'Priority comments', 'Discord access'],
-      trialDays: 7,
-      active: true,
-      createdAt: new Date('2024-01-15')
-    },
-    {
-      id: 2,
-      name: 'Premium',
-      price: 299,
-      description: 'Full access + perks',
-      subscribers: 128,
-      monthlyRevenue: 38272,
-      features: ['All Supporter benefits', 'Custom requests', 'Private DMs', 'Founder status'],
-      trialDays: 7,
-      active: true,
-      createdAt: new Date('2024-01-20')
+      onSuccess: () => {
+        queryClient.invalidateQueries('my-subscription-plans')
+        toast.success(t('planCreated'))
+        setIsEditing(false)
+      },
+      onError: (error) => toast.error(error.response?.data?.message || t('failedToCreatePlan'))
     }
-  ])
+  )
+
+  const updateMutation = useMutation(
+    ({ planId, data }) => subscriptionsAPI.updatePlan(planId, data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('my-subscription-plans')
+        toast.success(t('planUpdated'))
+        setIsEditing(false)
+      },
+      onError: (error) => toast.error(error.response?.data?.message || t('failedToUpdatePlan'))
+    }
+  )
+
+  const deleteMutation = useMutation(
+    (planId) => subscriptionsAPI.deletePlan(planId),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('my-subscription-plans')
+        toast.success(t('planDeleted'))
+      },
+      onError: (error) => toast.error(error.response?.data?.message || t('failedToDeletePlan'))
+    }
+  )
 
   const [isEditing, setIsEditing] = useState(false)
   const [editingPlan, setEditingPlan] = useState(null)
@@ -55,8 +74,8 @@ export function SubscriptionPlansPage() {
     trialDays: 7
   })
 
-  const totalSubscribers = plans.reduce((sum, p) => sum + p.subscribers, 0)
-  const totalRevenue = plans.reduce((sum, p) => sum + p.monthlyRevenue, 0)
+  const totalSubscribers = plans.reduce((sum, p) => sum + (p.activeSubscribers || 0), 0)
+  const totalRevenue = plans.reduce((sum, p) => sum + (parseFloat(p.price) || 0) * (p.activeSubscribers || 0), 0)
   const creatorEarnings = Math.round(totalRevenue * 0.7)
 
   const handleAddPlan = () => {
@@ -77,7 +96,7 @@ export function SubscriptionPlansPage() {
       name: plan.name,
       price: plan.price.toString(),
       description: plan.description,
-      features: [...plan.features],
+      features: [...(plan.features || [])],
       trialDays: plan.trialDays
     })
     setIsEditing(true)
@@ -85,60 +104,51 @@ export function SubscriptionPlansPage() {
 
   const handleSavePlan = () => {
     if (!formData.name || !formData.price || !formData.description) {
-      toast.error('Please fill in all required fields')
+      toast.error(t('fillRequiredFields'))
       return
     }
 
-    if (editingPlan) {
-      // Update plan
-      setPlans(plans.map(p =>
-        p.id === editingPlan.id
-          ? {
-              ...p,
-              name: formData.name,
-              price: parseInt(formData.price),
-              description: formData.description,
-              features: formData.features,
-              trialDays: formData.trialDays
-            }
-          : p
-      ))
-      toast.success('Plan updated successfully')
-    } else {
-      // Create new plan
-      const newPlan = {
-        id: Math.max(...plans.map(p => p.id), 0) + 1,
-        name: formData.name,
-        price: parseInt(formData.price),
-        description: formData.description,
-        subscribers: 0,
-        monthlyRevenue: 0,
-        features: formData.features,
-        trialDays: formData.trialDays,
-        active: true,
-        createdAt: new Date()
-      }
-      setPlans([...plans, newPlan])
-      toast.success('Plan created successfully')
+    const payload = {
+      name: formData.name,
+      description: formData.description,
+      price: parseFloat(formData.price),
+      durationInDays: 30,
+      features: formData.features.filter(Boolean),
     }
 
-    setIsEditing(false)
+    if (editingPlan) {
+      updateMutation.mutate({ planId: editingPlan.id, data: payload })
+    } else {
+      createMutation.mutate(payload)
+    }
   }
 
   const handleDeletePlan = (id) => {
-    if (confirm('Are you sure you want to delete this plan?')) {
-      setPlans(plans.filter(p => p.id !== id))
-      toast.success('Plan deleted')
+    if (confirm(t('confirmDeletePlan'))) {
+      deleteMutation.mutate(id)
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-charcoal-800 rounded w-1/3" />
+          <div className="grid grid-cols-3 gap-4">
+            {[1, 2, 3].map(i => <div key={i} className="h-24 bg-charcoal-800 rounded" />)}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Page Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-100">Subscription Plans</h1>
+        <h1 className="text-3xl font-bold text-gray-100">{t('subscriptionPlans')}</h1>
         <p className="text-gray-400 mt-2">
-          Manage your subscription tiers and pricing to maximize earnings
+          {t('subscriptionPlansSubtitle')}
         </p>
       </div>
 
@@ -147,7 +157,7 @@ export function SubscriptionPlansPage() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm font-medium">Total Subscribers</p>
+              <p className="text-gray-400 text-sm font-medium">{t('totalSubscribers')}</p>
               <p className="text-3xl font-bold text-gray-100 mt-2">
                 {totalSubscribers.toLocaleString()}
               </p>
@@ -159,9 +169,9 @@ export function SubscriptionPlansPage() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm font-medium">Monthly Revenue</p>
+              <p className="text-gray-400 text-sm font-medium">{t('monthlyRevenue')}</p>
               <p className="text-3xl font-bold text-primary-500 mt-2">
-                {totalRevenue.toLocaleString()} ETB
+                {totalRevenue.toLocaleString()} {t('etb')}
               </p>
             </div>
             <CurrencyDollarIcon className="h-12 w-12 text-primary-500 opacity-20" />
@@ -171,9 +181,9 @@ export function SubscriptionPlansPage() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm font-medium">Your Earnings (70%)</p>
+              <p className="text-gray-400 text-sm font-medium">{t('yourEarnings70')}</p>
               <p className="text-3xl font-bold text-green-400 mt-2">
-                {creatorEarnings.toLocaleString()} ETB
+                {creatorEarnings.toLocaleString()} {t('etb')}
               </p>
             </div>
             <ArrowTrendingUpIcon className="h-12 w-12 text-green-500 opacity-20" />
@@ -186,7 +196,7 @@ export function SubscriptionPlansPage() {
         <div className="mb-8">
           <Button variant="primary" onClick={handleAddPlan}>
             <PlusIcon className="h-4 w-4 mr-2" />
-            Create New Plan
+            {t('createNewPlan')}
           </Button>
         </div>
       )}
@@ -195,17 +205,17 @@ export function SubscriptionPlansPage() {
       {isEditing && (
         <Card className="mb-8 p-6">
           <h2 className="text-xl font-bold text-gray-100 mb-6">
-            {editingPlan ? 'Edit Plan' : 'Create New Plan'}
+            {editingPlan ? t('editPlan') : t('createNewPlan')}
           </h2>
 
           <div className="space-y-4">
             {/* Name */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Plan Name *
+                {t('planName')} *
               </label>
               <Input
-                placeholder="e.g., Premium Supporter"
+                placeholder={t('planNamePlaceholder')}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
@@ -215,7 +225,7 @@ export function SubscriptionPlansPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Monthly Price (ETB) *
+                  {t('monthlyPriceEtb')} *
                 </label>
                 <Input
                   type="number"
@@ -228,7 +238,7 @@ export function SubscriptionPlansPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Trial Period (Days)
+                  {t('trialPeriodDays')}
                 </label>
                 <Input
                   type="number"
@@ -243,10 +253,10 @@ export function SubscriptionPlansPage() {
             {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Description *
+                {t('description')} *
               </label>
               <Input
-                placeholder="What does this plan include?"
+                placeholder={t('planDescriptionPlaceholder')}
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
@@ -255,7 +265,7 @@ export function SubscriptionPlansPage() {
             {/* Features */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Features
+                {t('features')}
               </label>
               <div className="space-y-2 mb-3">
                 {formData.features.map((feature, idx) => (
@@ -267,7 +277,7 @@ export function SubscriptionPlansPage() {
                         newFeatures[idx] = e.target.value
                         setFormData({ ...formData, features: newFeatures })
                       }}
-                      placeholder="Add a feature"
+                      placeholder={t('addFeaturePlaceholder')}
                     />
                     <button
                       onClick={() => {
@@ -287,7 +297,7 @@ export function SubscriptionPlansPage() {
                 onClick={() => setFormData({ ...formData, features: [...formData.features, ''] })}
               >
                 <PlusIcon className="h-4 w-4 mr-2" />
-                Add Feature
+                {t('addFeature')}
               </Button>
             </div>
 
@@ -298,7 +308,7 @@ export function SubscriptionPlansPage() {
                 onClick={() => setIsEditing(false)}
                 className="flex-1"
               >
-                Cancel
+                {t('cancel')}
               </Button>
               <Button
                 variant="primary"
@@ -306,7 +316,7 @@ export function SubscriptionPlansPage() {
                 className="flex-1"
               >
                 <CheckIcon className="h-4 w-4 mr-2" />
-                {editingPlan ? 'Update Plan' : 'Create Plan'}
+                {editingPlan ? t('updatePlan') : t('createPlan')}
               </Button>
             </div>
           </div>
@@ -322,9 +332,9 @@ export function SubscriptionPlansPage() {
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
                   <h3 className="text-xl font-bold text-gray-100">{plan.name}</h3>
-                  {plan.active && (
+                  {plan.isActive !== false && (
                     <Badge variant="success" className="text-xs">
-                      Active
+                      {t('active')}
                     </Badge>
                   )}
                 </div>
@@ -336,11 +346,11 @@ export function SubscriptionPlansPage() {
             <div className="mb-4 pb-4 border-b border-charcoal-700">
               <p className="text-3xl font-bold text-primary-500">
                 {plan.price}
-                <span className="text-lg text-gray-400 ml-1">ETB/month</span>
+                <span className="text-lg text-gray-400 ml-1">{t('perMonth')}</span>
               </p>
               {plan.trialDays > 0 && (
                 <p className="text-xs text-gray-400 mt-1">
-                  {plan.trialDays}-day free trial
+                  {t('dayFreeTrial').replace('{days}', plan.trialDays)}
                 </p>
               )}
             </div>
@@ -348,32 +358,32 @@ export function SubscriptionPlansPage() {
             {/* Stats */}
             <div className="grid grid-cols-2 gap-4 mb-4 pb-4 border-b border-charcoal-700">
               <div>
-                <p className="text-gray-400 text-xs font-medium">Subscribers</p>
+                <p className="text-gray-400 text-xs font-medium">{t('subscribers')}</p>
                 <p className="text-xl font-bold text-gray-100 mt-1">
-                  {plan.subscribers.toLocaleString()}
+                  {(plan.activeSubscribers || 0).toLocaleString()}
                 </p>
               </div>
               <div>
-                <p className="text-gray-400 text-xs font-medium">Monthly Revenue</p>
+                <p className="text-gray-400 text-xs font-medium">{t('monthlyRevenue')}</p>
                 <p className="text-xl font-bold text-green-400 mt-1">
-                  {plan.monthlyRevenue.toLocaleString()} ETB
+                  {((parseFloat(plan.price) || 0) * (plan.activeSubscribers || 0)).toLocaleString()} {t('etb')}
                 </p>
               </div>
             </div>
 
             {/* Features */}
             <div className="mb-6">
-              <p className="text-xs font-semibold text-gray-300 mb-3">FEATURES</p>
+              <p className="text-xs font-semibold text-gray-300 mb-3">{t('features').toUpperCase()}</p>
               <div className="space-y-2">
-                {plan.features.slice(0, 3).map((feature, idx) => (
+                {(plan.features || []).slice(0, 3).map((feature, idx) => (
                   <div key={idx} className="flex items-start space-x-2">
                     <CheckIcon className="h-4 w-4 text-primary-500 mt-0.5 flex-shrink-0" />
                     <span className="text-sm text-gray-300">{feature}</span>
                   </div>
                 ))}
-                {plan.features.length > 3 && (
+                {(plan.features || []).length > 3 && (
                   <p className="text-xs text-gray-400 mt-2">
-                    +{plan.features.length - 3} more features
+                    {t('moreFeatures').replace('{count}', (plan.features || []).length - 3)}
                   </p>
                 )}
               </div>
@@ -405,11 +415,11 @@ export function SubscriptionPlansPage() {
       {plans.length === 0 && !isEditing && (
         <Card className="p-12 text-center">
           <StarIcon className="h-12 w-12 text-gray-500 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-100 mb-2">No Plans Yet</h3>
-          <p className="text-gray-400 mb-6">Create your first subscription plan to start earning</p>
+          <h3 className="text-xl font-semibold text-gray-100 mb-2">{t('noPlansYet')}</h3>
+          <p className="text-gray-400 mb-6">{t('createFirstPlanDesc')}</p>
           <Button variant="primary" onClick={handleAddPlan}>
             <PlusIcon className="h-4 w-4 mr-2" />
-            Create First Plan
+            {t('createFirstPlan')}
           </Button>
         </Card>
       )}

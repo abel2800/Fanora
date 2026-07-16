@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import { useQuery } from 'react-query'
 import { subscriptionsAPI } from '../../services/api'
+import { useI18n } from '../../contexts/I18nContext'
 import { Card } from '../../components/ui/Card'
 import { Badge } from '../../components/ui/Badge'
 import { Avatar } from '../../components/ui/Avatar'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
+import { PageSkeleton } from '../../components/ui/Skeleton'
 import { EnvelopeIcon, TrashIcon } from '@heroicons/react/24/outline'
-import toast from 'react-hot-toast'
 
 export function SubscribersPage() {
+  const { t } = useI18n()
   const [selectedPlan, setSelectedPlan] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
@@ -31,7 +32,7 @@ export function SubscribersPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-charcoal-900 flex items-center justify-center">
-        <LoadingSpinner />
+        <PageSkeleton />
       </div>
     )
   }
@@ -39,27 +40,25 @@ export function SubscribersPage() {
   return (
     <div className="min-h-screen bg-charcoal-900 pb-12">
       <div className="max-w-5xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-100 mb-2">Subscribers</h1>
-        <p className="text-gray-400 mb-8">Manage your subscriber base</p>
+        <h1 className="text-3xl font-bold text-gray-100 mb-2">{t('subscribers')}</h1>
+        <p className="text-gray-400 mb-8">{t('manageSubscriberBase')}</p>
 
-        {/* Overview Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <Card className="p-6">
-            <p className="text-gray-400 text-sm">Total Subscribers</p>
+            <p className="text-gray-400 text-sm">{t('totalSubscribers')}</p>
             <p className="text-3xl font-bold text-gray-100 mt-2">{totalSubscribers}</p>
           </Card>
           <Card className="p-6">
-            <p className="text-gray-400 text-sm">Average Monthly Value</p>
+            <p className="text-gray-400 text-sm">{t('avgMonthlyValue')}</p>
             <p className="text-3xl font-bold text-green-400 mt-2">
-              {plans.length > 0 ? Math.round(plans.reduce((s, p) => s + p.price, 0) / plans.length) : 0} ETB
+              {plans.length > 0 ? Math.round(plans.reduce((s, p) => s + p.price, 0) / plans.length) : 0} {t('etb')}
             </p>
           </Card>
         </div>
 
-        {/* Filters */}
         <div className="mb-6 flex gap-4">
           <Input
-            placeholder="Search subscribers..."
+            placeholder={t('searchSubscribers')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1"
@@ -69,25 +68,24 @@ export function SubscribersPage() {
             onChange={(e) => { setSelectedPlan(e.target.value); setPage(1) }}
             className="px-4 py-2 bg-charcoal-800 border border-charcoal-700 rounded-lg text-gray-300"
           >
-            <option value="all">All Plans</option>
+            <option value="all">{t('allPlans')}</option>
             {plans.map(plan => (
               <option key={plan.id} value={plan.id}>{plan.name}</option>
             ))}
           </select>
         </div>
 
-        {/* Subscribers List */}
         <Card>
           {subscribers.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="border-b border-charcoal-700">
                   <tr className="bg-charcoal-800">
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-300">Subscriber</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-300">Plan</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-300">Joined</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-300">Status</th>
-                    <th className="px-6 py-3 text-right text-sm font-semibold text-gray-300">Actions</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-300">{t('subscriber')}</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-300">{t('plan')}</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-300">{t('joined')}</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-300">{t('status')}</th>
+                    <th className="px-6 py-3 text-right text-sm font-semibold text-gray-300">{t('actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -130,7 +128,7 @@ export function SubscribersPage() {
             </div>
           ) : (
             <div className="p-12 text-center">
-              <p className="text-gray-400">No subscribers yet. Create a subscription plan to get started!</p>
+              <p className="text-gray-400">{t('noSubscribersYet')}</p>
             </div>
           )}
         </Card>

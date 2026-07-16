@@ -50,6 +50,7 @@ router.get('/', async (req, res) => {
             { tags: { [Op.contains]: [searchTerm.toLowerCase()] } },
           ],
         },
+        attributes: { exclude: ['mediaUrl', 'description'] },
         include: [
           {
             model: User,

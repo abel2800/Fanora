@@ -25,7 +25,14 @@ const Notification = sequelize.define('Notification', {
       'tip_received',
       'message_received',
       'subscription_expired',
-      'content_published'
+      'content_published',
+      'purchase',
+      'screenshot_alert',
+      'custom_request',
+      'custom_request_update',
+      'gift_received',
+      'verification_update',
+      'system'
     ),
     allowNull: false,
   },

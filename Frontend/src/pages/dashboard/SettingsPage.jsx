@@ -1,9 +1,12 @@
-import { useState } from 'react'
-import { useMutation } from 'react-query'
-import { authAPI } from '../../services/api'
+import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { useMutation, useQuery } from 'react-query'
+import { authAPI, usersAPI } from '../../services/api'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Card } from '../../components/ui/Card'
+import { syncDataSaverFromSettings, setDataSaverEnabled } from '../../lib/dataSaver'
+import { useI18n } from '../../contexts/I18nContext'
 import toast from 'react-hot-toast'
 import {
   Cog6ToothIcon,
@@ -15,6 +18,7 @@ import {
 } from '@heroicons/react/24/outline'
 
 export function SettingsPage() {
+  const { t, setLanguage } = useI18n()
   const [activeTab, setActiveTab] = useState('password')
   const [showPassword, setShowPassword] = useState(false)
   const [passwordData, setPasswordData] = useState({
@@ -29,6 +33,50 @@ export function SettingsPage() {
     promotions: false
   })
 
+  const { data: settingsData } = useQuery({
+    queryKey: ['user-settings'],
+    queryFn: () => usersAPI.getSettings().then((r) => r.data?.data || {}),
+  })
+
+  const [privacy, setPrivacy] = useState({
+    incognitoMode: false,
+    hideFromSubscriberSearch: false,
+    dataSaver: false,
+    language: 'en',
+  })
+
+  useEffect(() => {
+    if (settingsData?.privacy) {
+      setPrivacy((p) => ({
+        ...p,
+        incognitoMode: settingsData.privacy.incognitoMode ?? false,
+        hideFromSubscriberSearch: settingsData.privacy.hideFromSubscriberSearch ?? false,
+      }))
+    }
+    if (settingsData?.preferences) {
+      setPrivacy((p) => ({
+        ...p,
+        dataSaver: settingsData.preferences.dataSaver ?? false,
+        language: settingsData.preferences.language ?? 'en',
+      }))
+      syncDataSaverFromSettings(settingsData)
+    }
+  }, [settingsData])
+
+  const saveSettingsMutation = useMutation({
+    mutationFn: (data) => usersAPI.updateSettings(data),
+    onSuccess: (_res, variables) => {
+      if (variables?.preferences?.dataSaver != null) {
+        setDataSaverEnabled(Boolean(variables.preferences.dataSaver))
+      }
+      if (variables?.preferences?.language) {
+        setLanguage(variables.preferences.language)
+      }
+      toast.success(t('settingsSaved'))
+    },
+    onError: () => toast.error(t('failedToSave')),
+  })
+
   // Change password mutation
   const changePasswordMutation = useMutation({
     mutationFn: async (data) => {
@@ -41,10 +89,10 @@ export function SettingsPage() {
         newPassword: '',
         confirmPassword: ''
       })
-      toast.success('Password changed successfully')
+      toast.success(t('passwordChanged'))
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to change password')
+      toast.error(error.response?.data?.message || t('failedToChangePassword'))
     }
   })
 
@@ -60,12 +108,12 @@ export function SettingsPage() {
     e.preventDefault()
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error('Passwords do not match')
+      toast.error(t('passwordsDoNotMatch'))
       return
     }
 
     if (passwordData.newPassword.length < 8) {
-      toast.error('Password must be at least 8 characters')
+      toast.error(t('passwordMinLength'))
       return
     }
 
@@ -76,93 +124,94 @@ export function SettingsPage() {
   }
 
   return (
+    <div className="min-h-screen bg-charcoal-900">
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600 mt-2">
-          Manage your account security and preferences
+        <h1 className="text-3xl font-bold text-gray-100">{t('settings')}</h1>
+        <p className="text-gray-400 mt-2">
+          {t('manageAccountSecurity')}
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-2 mb-8 border-b border-gray-200">
+      <div className="flex space-x-2 mb-8 border-b border-charcoal-700">
         <button
           onClick={() => setActiveTab('password')}
           className={`px-4 py-2 font-medium border-b-2 transition-colors ${
             activeTab === 'password'
               ? 'text-primary-600 border-primary-600'
-              : 'text-gray-600 border-transparent hover:text-gray-900'
+              : 'text-gray-400 border-transparent hover:text-gray-100'
           }`}
         >
           <LockClosedIcon className="h-5 w-5 inline-block mr-2" />
-          Security
+          {t('security')}
         </button>
         <button
           onClick={() => setActiveTab('notifications')}
           className={`px-4 py-2 font-medium border-b-2 transition-colors ${
             activeTab === 'notifications'
               ? 'text-primary-600 border-primary-600'
-              : 'text-gray-600 border-transparent hover:text-gray-900'
+              : 'text-gray-400 border-transparent hover:text-gray-100'
           }`}
         >
           <BellIcon className="h-5 w-5 inline-block mr-2" />
-          Notifications
+          {t('notifications')}
         </button>
         <button
           onClick={() => setActiveTab('privacy')}
           className={`px-4 py-2 font-medium border-b-2 transition-colors ${
             activeTab === 'privacy'
               ? 'text-primary-600 border-primary-600'
-              : 'text-gray-600 border-transparent hover:text-gray-900'
+              : 'text-gray-400 border-transparent hover:text-gray-100'
           }`}
         >
           <LockOpenIcon className="h-5 w-5 inline-block mr-2" />
-          Privacy
+          {t('privacy')}
         </button>
       </div>
 
       {/* Change Password Tab */}
       {activeTab === 'password' && (
         <Card>
-          <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+          <h2 className="text-xl font-semibold text-gray-100 mb-6 flex items-center">
             <LockClosedIcon className="h-6 w-6 text-primary-600 mr-2" />
-            Change Password
+            {t('changePassword')}
           </h2>
 
           <form onSubmit={handlePasswordSubmit} className="max-w-md space-y-4">
             <div>
               <Input
-                label="Current Password"
+                label={t('currentPassword')}
                 type={showPassword ? 'text' : 'password'}
                 name="currentPassword"
                 value={passwordData.currentPassword}
                 onChange={handlePasswordChange}
-                placeholder="Enter current password"
+                placeholder={t('enterCurrentPassword')}
                 required
               />
             </div>
 
             <div>
               <Input
-                label="New Password"
+                label={t('newPassword')}
                 type={showPassword ? 'text' : 'password'}
                 name="newPassword"
                 value={passwordData.newPassword}
                 onChange={handlePasswordChange}
-                placeholder="Enter new password (min 8 characters)"
+                placeholder={t('enterNewPasswordHint')}
                 required
               />
             </div>
 
             <div>
               <Input
-                label="Confirm Password"
+                label={t('confirmPassword')}
                 type={showPassword ? 'text' : 'password'}
                 name="confirmPassword"
                 value={passwordData.confirmPassword}
                 onChange={handlePasswordChange}
-                placeholder="Confirm new password"
+                placeholder={t('confirmNewPassword')}
                 required
               />
             </div>
@@ -175,12 +224,12 @@ export function SettingsPage() {
               {showPassword ? (
                 <>
                   <EyeSlashIcon className="h-4 w-4 mr-1" />
-                  Hide passwords
+                  {t('hidePasswords')}
                 </>
               ) : (
                 <>
                   <EyeIcon className="h-4 w-4 mr-1" />
-                  Show passwords
+                  {t('showPasswords')}
                 </>
               )}
             </button>
@@ -191,13 +240,13 @@ export function SettingsPage() {
                 type="submit"
                 disabled={changePasswordMutation.isPending}
               >
-                {changePasswordMutation.isPending ? 'Updating...' : 'Update Password'}
+                {changePasswordMutation.isPending ? t('updating') : t('updatePassword')}
               </Button>
             </div>
 
-            <div className="p-4 bg-blue-50 rounded-lg text-sm text-blue-800">
+            <div className="p-4 bg-charcoal-800 rounded-lg text-sm text-gray-300 border border-charcoal-700">
               <p>
-                <strong>Password Tips:</strong> Use a mix of uppercase, lowercase, numbers, and special characters for better security.
+                <strong>{t('passwordTips')}</strong> {t('passwordTipsDesc')}
               </p>
             </div>
           </form>
@@ -207,18 +256,17 @@ export function SettingsPage() {
       {/* Notifications Tab */}
       {activeTab === 'notifications' && (
         <Card>
-          <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+          <h2 className="text-xl font-semibold text-gray-100 mb-6 flex items-center">
             <BellIcon className="h-6 w-6 text-primary-600 mr-2" />
-            Notification Preferences
+            {t('notificationPreferences')}
           </h2>
 
           <div className="space-y-4 max-w-md">
-            {/* Email Notifications */}
-            <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+            <div className="flex items-center justify-between p-4 border border-charcoal-700 rounded-lg">
               <div>
-                <p className="font-medium text-gray-900">Email Notifications</p>
-                <p className="text-sm text-gray-600">
-                  Receive important account updates via email
+                <p className="font-medium text-gray-100">{t('emailNotifications')}</p>
+                <p className="text-sm text-gray-400">
+                  {t('emailNotificationsDesc')}
                 </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -236,12 +284,11 @@ export function SettingsPage() {
               </label>
             </div>
 
-            {/* Push Notifications */}
-            <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+            <div className="flex items-center justify-between p-4 border border-charcoal-700 rounded-lg">
               <div>
-                <p className="font-medium text-gray-900">Push Notifications</p>
-                <p className="text-sm text-gray-600">
-                  Get notified on new content from creators
+                <p className="font-medium text-gray-100">{t('pushNotifications')}</p>
+                <p className="text-sm text-gray-400">
+                  {t('pushNotificationsDesc')}
                 </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -259,12 +306,11 @@ export function SettingsPage() {
               </label>
             </div>
 
-            {/* Content Updates */}
-            <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+            <div className="flex items-center justify-between p-4 border border-charcoal-700 rounded-lg">
               <div>
-                <p className="font-medium text-gray-900">Content Updates</p>
-                <p className="text-sm text-gray-600">
-                  Notifications when creators you follow upload new content
+                <p className="font-medium text-gray-100">{t('contentUpdates')}</p>
+                <p className="text-sm text-gray-400">
+                  {t('contentUpdatesDesc')}
                 </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -282,12 +328,11 @@ export function SettingsPage() {
               </label>
             </div>
 
-            {/* Promotions */}
-            <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+            <div className="flex items-center justify-between p-4 border border-charcoal-700 rounded-lg">
               <div>
-                <p className="font-medium text-gray-900">Promotions</p>
-                <p className="text-sm text-gray-600">
-                  Special offers and promotional campaigns
+                <p className="font-medium text-gray-100">{t('promotions')}</p>
+                <p className="text-sm text-gray-400">
+                  {t('promotionsDesc')}
                 </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -306,7 +351,7 @@ export function SettingsPage() {
             </div>
 
             <Button variant="primary" className="mt-6">
-              Save Preferences
+              {t('savePreferences')}
             </Button>
           </div>
         </Card>
@@ -315,64 +360,36 @@ export function SettingsPage() {
       {/* Privacy Tab */}
       {activeTab === 'privacy' && (
         <div className="space-y-4">
-          <Card>
-            <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-              <LockOpenIcon className="h-6 w-6 text-primary-600 mr-2" />
-              Privacy Settings
-            </h2>
-
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold text-gray-100 mb-6">{t('incognitoPrivacy')}</h2>
             <div className="space-y-4 max-w-md">
-              <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900">Profile Visibility</p>
-                  <p className="text-sm text-gray-600">
-                    Allow others to see your profile
-                  </p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    className="w-5 h-5 accent-primary-600 cursor-pointer"
-                  />
+              {[
+                { key: 'incognitoMode', label: t('incognito'), desc: t('incognitoDesc') },
+                { key: 'hideFromSubscriberSearch', label: t('hideFromSubscriberSearch'), desc: t('hideFromSubscriberSearchDesc') },
+                { key: 'dataSaver', label: t('lowData'), desc: t('dataSaverDesc') },
+              ].map((item) => (
+                <label key={item.key} className="flex items-center justify-between p-4 border border-charcoal-700 rounded-card">
+                  <div>
+                    <p className="font-medium text-gray-100">{item.label}</p>
+                    <p className="text-sm text-gray-500">{item.desc}</p>
+                  </div>
+                  <input type="checkbox" checked={!!privacy[item.key]} onChange={(e) => setPrivacy((p) => ({ ...p, [item.key]: e.target.checked }))} className="w-5 h-5 accent-primary-500" />
                 </label>
-              </div>
-
-              <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900">Show Activity</p>
-                  <p className="text-sm text-gray-600">
-                    Let others see your activity status
-                  </p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    className="w-5 h-5 accent-primary-600 cursor-pointer"
-                  />
-                </label>
-              </div>
-
-              <Button variant="primary" className="mt-6">
-                Save Privacy Settings
-              </Button>
+              ))}
+              <select className="input-base" value={privacy.language} onChange={(e) => setPrivacy((p) => ({ ...p, language: e.target.value }))}>
+                <option value="en">{t('english')}</option>
+                <option value="am">{t('amharic')}</option>
+              </select>
+              <Button variant="primary" onClick={() => saveSettingsMutation.mutate({
+                privacy: { incognitoMode: privacy.incognitoMode, hideFromSubscriberSearch: privacy.hideFromSubscriberSearch },
+                preferences: { dataSaver: privacy.dataSaver, language: privacy.language },
+              })}>{t('save')}</Button>
+              <Link to="/trust" className="text-sm text-primary-500">{t('trust')} →</Link>
             </div>
-          </Card>
-
-          <Card className="border-red-200 bg-red-50">
-            <h3 className="text-lg font-semibold text-red-900 mb-4">
-              Danger Zone
-            </h3>
-            <p className="text-red-800 mb-4">
-              Irreversible actions that cannot be undone. Proceed with caution.
-            </p>
-            <Button variant="danger">
-              Delete Account
-            </Button>
           </Card>
         </div>
       )}
+    </div>
     </div>
   )
 }

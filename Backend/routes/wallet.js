@@ -6,8 +6,10 @@ const Transaction = require('../models/Transaction');
 const { User, Notification } = require('../models');
 const { auth, isEmailVerified, isCreator } = require('../middleware/auth');
 const { validateWalletPin } = require('../middleware/validation');
-const TelebirrService = require('../services/telebirr');
-const CBEService = require('../services/cbe');
+const TelebirrServiceClass = require('../services/telebirr');
+const CBEServiceClass = require('../services/cbe');
+const telebirrService = new TelebirrServiceClass();
+const cbeService = new CBEServiceClass();
 
 const router = express.Router();
 
@@ -118,7 +120,7 @@ router.post('/verify-pin', auth, async (req, res) => {
       return res.status(400).json({ message: 'No PIN set for wallet' });
     }
 
-    const isValid = await bcrypt.compare(pin, wallet.walletPin);
+    const isValid = await wallet.verifyPin(pin);
 
     if (!isValid) {
       return res.status(401).json({ message: 'Invalid PIN' });
@@ -236,7 +238,7 @@ router.post('/topup/telebirr', auth, async (req, res) => {
       return res.status(400).json({ message: 'Please set wallet PIN first' });
     }
 
-    const pinValid = await bcrypt.compare(pin, wallet.walletPin);
+    const pinValid = await wallet.verifyPin(pin);
     if (!pinValid) {
       return res.status(401).json({ message: 'Invalid PIN' });
     }
@@ -271,16 +273,37 @@ router.post('/topup/telebirr', auth, async (req, res) => {
       type: 'topup',
       status: 'pending',
       description: 'Wallet topup via Telebirr',
-      reference: `TOPUP-${Date.now()}`
+      reference: `TOPUP-${Date.now()}`,
+      paymentMethodType: 'telebirr',
+      paymentMethodDetails: { phoneNumber: wallet.telebirrPhoneNumber }
     });
 
     // Call Telebirr service to generate payment
-    const paymentData = await TelebirrService.initiatePayment({
+    const paymentData = await telebirrService.initiatePayment({
       amount: amountNum,
       phoneNumber: wallet.telebirrPhoneNumber,
-      reference: transaction.reference,
+      merchantReference: transaction.reference,
       description: 'Fanora Wallet Topup'
     });
+
+    if (!paymentData.success) {
+      await transaction.update({ status: 'failed' });
+      // Demo fallback so mobile/web can continue development without live payment keys
+      return res.status(201).json({
+        success: true,
+        message: 'Payment initiated (demo mode)',
+        data: {
+          transactionId: transaction.id,
+          reference: transaction.reference,
+          amount: amountNum,
+          currency: 'ETB',
+          paymentUrl: null,
+          qrCode: `DEMO-TELEBIRR-${transaction.reference}`,
+          demo: true,
+          expiresIn: 900
+        }
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -290,9 +313,9 @@ router.post('/topup/telebirr', auth, async (req, res) => {
         reference: transaction.reference,
         amount: amountNum,
         currency: 'ETB',
-        paymentUrl: paymentData.paymentUrl,
-        qrCode: paymentData.qrCode,
-        expiresIn: 900 // 15 minutes
+        paymentUrl: paymentData.data.paymentUrl,
+        qrCode: paymentData.data.qrCode,
+        expiresIn: 900
       }
     });
   } catch (error) {
@@ -323,7 +346,7 @@ router.post('/topup/cbe', auth, async (req, res) => {
       return res.status(400).json({ message: 'Please set wallet PIN first' });
     }
 
-    const pinValid = await bcrypt.compare(pin, wallet.walletPin);
+    const pinValid = await wallet.verifyPin(pin);
     if (!pinValid) {
       return res.status(401).json({ message: 'Invalid PIN' });
     }
@@ -358,17 +381,41 @@ router.post('/topup/cbe', auth, async (req, res) => {
       type: 'topup',
       status: 'pending',
       description: 'Wallet topup via CBE',
-      reference: `TOPUP-${Date.now()}`
+      reference: `TOPUP-${Date.now()}`,
+      paymentMethodType: 'cbe_mobile',
+      paymentMethodDetails: {
+        phoneNumber: wallet.cbePhoneNumber,
+        accountNumber: wallet.cbeAccountNumber
+      }
     });
 
     // Call CBE service to generate payment
-    const paymentData = await CBEService.initiatePayment({
+    const paymentData = await cbeService.initiatePayment({
       amount: amountNum,
       phoneNumber: wallet.cbePhoneNumber,
       accountNumber: wallet.cbeAccountNumber,
-      reference: transaction.reference,
+      merchantReference: transaction.reference,
       description: 'Fanora Wallet Topup'
     });
+
+    if (!paymentData.success) {
+      // Keep pending for demo confirmation flow
+      return res.status(201).json({
+        success: true,
+        message: 'Payment initiated (demo mode)',
+        data: {
+          transactionId: transaction.id,
+          reference: transaction.reference,
+          amount: amountNum,
+          currency: 'ETB',
+          paymentUrl: null,
+          qrCode: `DEMO-CBE-${transaction.reference}`,
+          ussdCode: '*847#',
+          demo: true,
+          expiresIn: 900
+        }
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -378,8 +425,8 @@ router.post('/topup/cbe', auth, async (req, res) => {
         reference: transaction.reference,
         amount: amountNum,
         currency: 'ETB',
-        paymentUrl: paymentData.paymentUrl,
-        qrCode: paymentData.qrCode,
+        paymentUrl: paymentData.data?.paymentUrl || null,
+        qrCode: paymentData.data?.qrCode || paymentData.data?.ussdCode || null,
         expiresIn: 900 // 15 minutes
       }
     });
@@ -403,7 +450,7 @@ router.get('/transactions', auth, async (req, res) => {
     const offset = (pageNum - 1) * limitNum;
 
     // Validate enum values
-    const validTypes = ['topup', 'withdrawal', 'subscription', 'tip', 'refund', 'commission'];
+    const validTypes = ['deposit', 'topup', 'withdrawal', 'subscription', 'subscription_payment', 'tip', 'refund', 'commission', 'content_purchase'];
     const validStatuses = ['pending', 'completed', 'failed', 'cancelled'];
 
     const wallet = await Wallet.findOne({ where: { userId: req.user.id } });
@@ -468,7 +515,7 @@ router.post('/withdraw', auth, isCreator, async (req, res) => {
       return res.status(400).json({ message: 'Please set wallet PIN first' });
     }
 
-    const pinValid = await bcrypt.compare(pin, wallet.walletPin);
+    const pinValid = await wallet.verifyPin(pin);
     if (!pinValid) {
       return res.status(401).json({ message: 'Invalid PIN' });
     }
@@ -566,6 +613,46 @@ router.get('/payment-methods', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Get payment methods error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+// ============= CONFIRM TOPUP (demo / manual completion) =============
+router.post('/topup/confirm/:transactionId', auth, async (req, res) => {
+  try {
+    const transaction = await Transaction.findOne({
+      where: {
+        id: req.params.transactionId,
+        userId: req.user.id,
+        type: { [Op.in]: ['topup', 'deposit'] },
+      },
+    });
+    if (!transaction) return res.status(404).json({ message: 'Transaction not found' });
+    if (transaction.status === 'completed') {
+      return res.json({ success: true, message: 'Already completed', data: transaction });
+    }
+    if (!['pending', 'processing'].includes(transaction.status)) {
+      return res.status(400).json({ message: 'Cannot confirm transaction' });
+    }
+    const wallet = await Wallet.findOne({ where: { userId: req.user.id } });
+    if (!wallet) return res.status(404).json({ message: 'Wallet not found' });
+    await wallet.increment('balance', { by: parseFloat(transaction.amount) });
+    await transaction.update({ status: 'completed' });
+    await Notification.create({
+      userId: req.user.id,
+      type: 'content_published',
+      message: 'Wallet topped up with ' + transaction.amount + ' ETB',
+      relatedUserId: req.user.id,
+    });
+    await wallet.reload();
+    res.json({
+      success: true,
+      message: 'Top-up confirmed',
+      data: { transaction, balance: parseFloat(wallet.balance) },
+    });
+  } catch (error) {
+    console.error('Confirm topup error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

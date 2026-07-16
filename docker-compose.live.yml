@@ -1,0 +1,15 @@
+services:
+  srs:
+    image: ossrs/srs:5
+    restart: unless-stopped
+    command: ./objs/srs -c /usr/local/srs/conf/fanora.conf
+    ports:
+      - "1935:1935"
+      - "1985:1985"
+      - "8080:8080"
+    volumes:
+      - ./infra/live/srs.conf:/usr/local/srs/conf/fanora.conf:ro
+      - live-hls:/usr/local/srs/objs/nginx/html/hls
+
+volumes:
+  live-hls:

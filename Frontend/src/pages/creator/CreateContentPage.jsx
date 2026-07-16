@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { contentAPI } from '../../services/api'
+import { useI18n } from '../../contexts/I18nContext'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Card } from '../../components/ui/Card'
@@ -16,7 +19,10 @@ import {
 import toast from 'react-hot-toast'
 
 export function CreateContentPage() {
+  const navigate = useNavigate()
+  const { t } = useI18n()
   const [step, setStep] = useState(1)
+  const [submitting, setSubmitting] = useState(false)
   const [contentType, setContentType] = useState('photo')
   const [formData, setFormData] = useState({
     title: '',
@@ -43,7 +49,7 @@ export function CreateContentPage() {
     // Validate file size (max 500MB for video, 10MB for photo)
     const maxSize = contentType === 'video' ? 500 * 1024 * 1024 : 10 * 1024 * 1024
     if (file.size > maxSize) {
-      toast.error(`File is too large. Max size: ${contentType === 'video' ? '500MB' : '10MB'}`)
+      toast.error(t('fileTooLarge').replace('{size}', contentType === 'video' ? '500MB' : '10MB'))
       return
     }
 
@@ -78,47 +84,65 @@ export function CreateContentPage() {
 
   const handleNext = () => {
     if (step === 1 && !formData.file) {
-      toast.error('Please upload a file')
+      toast.error(t('pleaseUploadFile'))
       return
     }
     if (step === 2 && !formData.title) {
-      toast.error('Please enter a title')
+      toast.error(t('pleaseEnterTitle'))
       return
     }
     if (step === 3 && formData.accessControl === 'pay_per_view' && !formData.price) {
-      toast.error('Please set a price for pay-per-view content')
+      toast.error(t('pleaseSetPPVPrice'))
       return
     }
     setStep(step + 1)
   }
 
-  const handleSubmit = () => {
-    toast.success('Content uploaded successfully!')
-    // Reset form
-    setStep(1)
-    setFormData({
-      title: '',
-      description: '',
-      file: null,
-      thumbnail: null,
-      accessControl: 'free',
-      price: '',
-      tags: [],
-      schedule: false,
-      scheduleDate: '',
-      allowComments: true,
-      allowTips: true
-    })
-    setPreview({ file: null, thumbnail: null })
+  const handleSubmit = async () => {
+    if (!formData.title.trim()) {
+      toast.error(t('titleRequired'))
+      return
+    }
+    try {
+      setSubmitting(true)
+      const body = new FormData()
+      body.append('title', formData.title)
+      body.append('description', formData.description || '')
+      body.append('type', contentType === 'photo' ? 'image' : contentType === 'video' ? 'video' : 'text')
+      const accessType =
+        formData.accessControl === 'subscribers_only'
+          ? 'premium'
+          : formData.accessControl === 'pay_per_view'
+            ? 'pay_per_view'
+            : 'free'
+      body.append('accessType', accessType)
+      if (accessType === 'pay_per_view') body.append('price', formData.price || '0')
+      body.append('tags', JSON.stringify(formData.tags || []))
+      body.append('allowComments', String(formData.allowComments))
+      body.append('allowTips', String(formData.allowTips))
+      if (formData.file) body.append('file', formData.file)
+
+      const { data } = await contentAPI.createContent(body)
+      const created = data.data || data
+      if (created?.id) {
+        await contentAPI.updateContent(created.id, { status: 'published' })
+      }
+      toast.success(t('contentUploaded'))
+      navigate('/creator/content')
+    } catch (error) {
+      toast.error(error.response?.data?.message || t('uploadFailed'))
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-100">Create Content</h1>
+        <h1 className="text-3xl font-bold text-gray-100">{t('createContent')}</h1>
         <p className="text-gray-400 mt-2">
-          Upload and publish exclusive content for your subscribers
+          {t('createContentSubtitle')}
         </p>
       </div>
 
@@ -150,17 +174,17 @@ export function CreateContentPage() {
           ))}
         </div>
         <div className="flex justify-between text-xs text-gray-400">
-          <span>Upload</span>
-          <span>Details</span>
-          <span>Access</span>
-          <span>Review</span>
+          <span>{t('stepUpload')}</span>
+          <span>{t('stepDetails')}</span>
+          <span>{t('stepAccess')}</span>
+          <span>{t('stepReview')}</span>
         </div>
       </div>
 
       {/* Step 1: Upload */}
       {step === 1 && (
         <Card className="p-8 mb-8">
-          <h2 className="text-2xl font-bold text-gray-100 mb-6">Choose Content Type</h2>
+          <h2 className="text-2xl font-bold text-gray-100 mb-6">{t('chooseContentType')}</h2>
 
           <div className="grid grid-cols-2 gap-4 mb-8">
             <button
@@ -174,8 +198,8 @@ export function CreateContentPage() {
               <PhotoIcon className={`h-12 w-12 mx-auto mb-2 ${
                 contentType === 'photo' ? 'text-primary-500' : 'text-gray-400'
               }`} />
-              <p className="font-semibold text-gray-100">Photo</p>
-              <p className="text-xs text-gray-400 mt-1">JPEG, PNG (Max 10MB)</p>
+              <p className="font-semibold text-gray-100">{t('photo')}</p>
+              <p className="text-xs text-gray-400 mt-1">{t('photoFormats')}</p>
             </button>
 
             <button
@@ -189,13 +213,13 @@ export function CreateContentPage() {
               <FilmIcon className={`h-12 w-12 mx-auto mb-2 ${
                 contentType === 'video' ? 'text-primary-500' : 'text-gray-400'
               }`} />
-              <p className="font-semibold text-gray-100">Video</p>
-              <p className="text-xs text-gray-400 mt-1">MP4, WebM (Max 500MB)</p>
+              <p className="font-semibold text-gray-100">{t('videos')}</p>
+              <p className="text-xs text-gray-400 mt-1">{t('videoFormats')}</p>
             </button>
           </div>
 
           {/* File Upload */}
-          <h3 className="text-lg font-semibold text-gray-100 mb-4">Upload {contentType === 'photo' ? 'Photo' : 'Video'}</h3>
+          <h3 className="text-lg font-semibold text-gray-100 mb-4">{contentType === 'photo' ? t('uploadPhoto') : t('uploadVideo')}</h3>
           <div className="mb-6">
             <label className="border-2 border-dashed border-charcoal-700 rounded-lg p-8 text-center cursor-pointer hover:border-primary-500 transition-colors block">
               <input
@@ -211,14 +235,14 @@ export function CreateContentPage() {
                   ) : (
                     <video src={preview.file} className="h-32 mx-auto rounded-lg mb-4 object-cover" controls />
                   )}
-                  <Badge variant="success" className="text-xs">File selected</Badge>
+                  <Badge variant="success" className="text-xs">{t('fileSelected')}</Badge>
                 </div>
               ) : (
                 <div>
                   <ArrowUpTrayIcon className="h-12 w-12 text-primary-500 mx-auto mb-3" />
-                  <p className="font-semibold text-gray-100">Click to upload or drag and drop</p>
+                  <p className="font-semibold text-gray-100">{t('clickToUpload')}</p>
                   <p className="text-sm text-gray-400 mt-1">
-                    {contentType === 'photo' ? 'JPEG, PNG up to 10MB' : 'MP4, WebM up to 500MB'}
+                    {contentType === 'photo' ? t('photoFormats') : t('videoFormats')}
                   </p>
                 </div>
               )}
@@ -226,7 +250,7 @@ export function CreateContentPage() {
           </div>
 
           {/* Thumbnail */}
-          <h3 className="text-lg font-semibold text-gray-100 mb-4">Upload Thumbnail (Optional)</h3>
+          <h3 className="text-lg font-semibold text-gray-100 mb-4">{t('uploadThumbnailOptional')}</h3>
           <label className="border-2 border-dashed border-charcoal-700 rounded-lg p-6 text-center cursor-pointer hover:border-primary-500 transition-colors block mb-8">
             <input
               type="file"
@@ -239,13 +263,13 @@ export function CreateContentPage() {
             ) : (
               <div>
                 <PhotoIcon className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-400">Upload thumbnail image</p>
+                <p className="text-sm text-gray-400">{t('uploadThumbnailImage')}</p>
               </div>
             )}
           </label>
 
           <Button variant="primary" onClick={handleNext} className="w-full">
-            Continue →
+            {t('continue')} →
           </Button>
         </Card>
       )}
@@ -253,22 +277,22 @@ export function CreateContentPage() {
       {/* Step 2: Details */}
       {step === 2 && (
         <Card className="p-8 mb-8">
-          <h2 className="text-2xl font-bold text-gray-100 mb-6">Content Details</h2>
+          <h2 className="text-2xl font-bold text-gray-100 mb-6">{t('contentDetails')}</h2>
 
           <div className="space-y-4 mb-6">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Title *</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">{t('titleLabel')} *</label>
               <Input
-                placeholder="Enter content title"
+                placeholder={t('enterContentTitle')}
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">{t('description')}</label>
               <textarea
-                placeholder="Describe your content..."
+                placeholder={t('describeContent')}
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 maxLength={500}
@@ -278,7 +302,7 @@ export function CreateContentPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Tags</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">{t('tags')}</label>
               <div className="flex flex-wrap gap-2 mb-2">
                 {formData.tags.map((tag) => (
                   <Badge key={tag} variant="primary" className="flex items-center space-x-1">
@@ -290,7 +314,7 @@ export function CreateContentPage() {
                 ))}
               </div>
               <Input
-                placeholder="Add tags (music, tutorial, etc.)"
+                placeholder={t('addTags')}
                 onKeyPress={(e) => {
                   if (e.key === 'Enter') {
                     handleAddTag(e.target.value)
@@ -310,7 +334,7 @@ export function CreateContentPage() {
                 onChange={(e) => setFormData({ ...formData, allowComments: e.target.checked })}
                 className="w-4 h-4 rounded"
               />
-              <span className="text-sm text-gray-300">Allow comments</span>
+              <span className="text-sm text-gray-300">{t('allowComments')}</span>
             </label>
             <label className="flex items-center space-x-3 cursor-pointer">
               <input
@@ -319,16 +343,16 @@ export function CreateContentPage() {
                 onChange={(e) => setFormData({ ...formData, allowTips: e.target.checked })}
                 className="w-4 h-4 rounded"
               />
-              <span className="text-sm text-gray-300">Allow tips</span>
+              <span className="text-sm text-gray-300">{t('allowTips')}</span>
             </label>
           </div>
 
           <div className="flex space-x-3">
             <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
-              ← Back
+              ← {t('back')}
             </Button>
             <Button variant="primary" onClick={handleNext} className="flex-1">
-              Continue →
+              {t('continue')} →
             </Button>
           </div>
         </Card>
@@ -337,7 +361,7 @@ export function CreateContentPage() {
       {/* Step 3: Access Control */}
       {step === 3 && (
         <Card className="p-8 mb-8">
-          <h2 className="text-2xl font-bold text-gray-100 mb-6">Access Control</h2>
+          <h2 className="text-2xl font-bold text-gray-100 mb-6">{t('accessControl')}</h2>
 
           <div className="space-y-3 mb-8">
             <button
@@ -351,8 +375,8 @@ export function CreateContentPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <EyeIcon className="h-5 w-5 text-primary-500 inline mr-2" />
-                  <p className="font-semibold text-gray-100">Public (Free)</p>
-                  <p className="text-xs text-gray-400 mt-1">Everyone can see this content</p>
+                  <p className="font-semibold text-gray-100">{t('publicFree')}</p>
+                  <p className="text-xs text-gray-400 mt-1">{t('everyoneCanSee')}</p>
                 </div>
               </div>
             </button>
@@ -368,8 +392,8 @@ export function CreateContentPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <StarIcon className="h-5 w-5 text-primary-500 inline mr-2" />
-                  <p className="font-semibold text-gray-100">Subscribers Only</p>
-                  <p className="text-xs text-gray-400 mt-1">Available to all subscribers</p>
+                  <p className="font-semibold text-gray-100">{t('subscribersOnly')}</p>
+                  <p className="text-xs text-gray-400 mt-1">{t('availableToSubscribers')}</p>
                 </div>
               </div>
             </button>
@@ -385,8 +409,8 @@ export function CreateContentPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <LockClosedIcon className="h-5 w-5 text-primary-500 inline mr-2" />
-                  <p className="font-semibold text-gray-100">Pay Per View</p>
-                  <p className="text-xs text-gray-400 mt-1">Charge a one-time fee</p>
+                  <p className="font-semibold text-gray-100">{t('payPerView')}</p>
+                  <p className="text-xs text-gray-400 mt-1">{t('chargeOneTimeFee')}</p>
                 </div>
               </div>
             </button>
@@ -395,7 +419,7 @@ export function CreateContentPage() {
           {/* Price for Pay-Per-View */}
           {formData.accessControl === 'pay_per_view' && (
             <div className="mb-8 p-4 bg-charcoal-700 rounded-lg">
-              <label className="block text-sm font-medium text-gray-300 mb-2">Set Price (ETB)</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">{t('setPriceEtb')}</label>
               <Input
                 type="number"
                 min="1"
@@ -408,10 +432,10 @@ export function CreateContentPage() {
 
           <div className="flex space-x-3">
             <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
-              ← Back
+              ← {t('back')}
             </Button>
             <Button variant="primary" onClick={handleNext} className="flex-1">
-              Review →
+              {t('stepReview')} →
             </Button>
           </div>
         </Card>
@@ -420,7 +444,7 @@ export function CreateContentPage() {
       {/* Step 4: Review */}
       {step === 4 && (
         <Card className="p-8 mb-8">
-          <h2 className="text-2xl font-bold text-gray-100 mb-6">Review & Publish</h2>
+          <h2 className="text-2xl font-bold text-gray-100 mb-6">{t('reviewAndPublish')}</h2>
 
           {/* Preview */}
           <div className="mb-8">
@@ -438,15 +462,15 @@ export function CreateContentPage() {
           {/* Summary */}
           <div className="space-y-4 pb-8 border-b border-charcoal-700">
             <div className="flex justify-between">
-              <span className="text-gray-400">Title:</span>
+              <span className="text-gray-400">{t('titleLabel')}:</span>
               <span className="font-semibold text-gray-100">{formData.title}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Type:</span>
+              <span className="text-gray-400">{t('typeLabel')}:</span>
               <Badge variant="primary" className="text-xs capitalize">{contentType}</Badge>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Access:</span>
+              <span className="text-gray-400">{t('accessLabel')}:</span>
               <Badge variant={
                 formData.accessControl === 'free' ? 'secondary' :
                 formData.accessControl === 'subscribers_only' ? 'primary' :
@@ -457,7 +481,7 @@ export function CreateContentPage() {
             </div>
             {formData.tags.length > 0 && (
               <div>
-                <span className="text-gray-400 block mb-2">Tags:</span>
+                <span className="text-gray-400 block mb-2">{t('tags')}:</span>
                 <div className="flex flex-wrap gap-2">
                   {formData.tags.map((tag) => (
                     <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
@@ -469,11 +493,10 @@ export function CreateContentPage() {
 
           <div className="flex space-x-3 mt-8">
             <Button variant="outline" onClick={() => setStep(3)} className="flex-1">
-              ← Back
+              ← {t('back')}
             </Button>
-            <Button variant="primary" onClick={handleSubmit} className="flex-1">
-              <CheckIcon className="h-4 w-4 mr-2" />
-              Publish Content
+            <Button variant="primary" onClick={handleSubmit} className="flex-1" disabled={submitting}>
+              {submitting ? t('publishing') : t('publishContent')}
             </Button>
           </div>
         </Card>

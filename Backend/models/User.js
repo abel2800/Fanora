@@ -104,6 +104,11 @@ const User = sequelize.define('User', {
     type: DataTypes.DATE,
     field: 'password_reset_expires',
   },
+  referralCode: {
+    type: DataTypes.STRING(20),
+    unique: true,
+    field: 'referral_code',
+  },
   settings: {
     type: DataTypes.JSONB,
     defaultValue: {
@@ -116,6 +121,13 @@ const User = sequelize.define('User', {
       privacy: {
         profileVisibility: 'public',
         showOnlineStatus: true,
+        incognitoMode: false,
+        hideFromSubscriberSearch: false,
+        disguisedDisplayName: 'Fan',
+      },
+      preferences: {
+        language: 'en',
+        dataSaver: false,
       },
     },
   },
@@ -178,11 +190,11 @@ User.prototype.isAdult = function() {
   const birthDate = new Date(this.dateOfBirth);
   const age = today.getFullYear() - birthDate.getFullYear();
   const monthDiff = today.getMonth() - birthDate.getMonth();
-  
+
   if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
     return age - 1 >= 18;
   }
-  
+
   return age >= 18;
 };
 

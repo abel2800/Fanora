@@ -1,4 +1,5 @@
 import { clsx } from 'clsx'
+import { useI18n } from '../../contexts/I18nContext'
 
 const LoadingSpinner = ({ size = 'md', className, text }) => {
   const sizes = {
@@ -17,23 +18,29 @@ const LoadingSpinner = ({ size = 'md', className, text }) => {
         )}
       />
       {text && (
-        <p className="mt-2 text-sm text-gray-600">{text}</p>
+        <p className="mt-2 text-sm text-gray-400">{text}</p>
       )}
     </div>
   )
 }
 
-const PageLoader = ({ text = 'Loading...' }) => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-50">
-    <LoadingSpinner size="xl" text={text} />
-  </div>
-)
+const PageLoader = ({ text }) => {
+  const { t } = useI18n()
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-charcoal-900">
+      <LoadingSpinner size="xl" text={text ?? t('loading')} />
+    </div>
+  )
+}
 
-const ContentLoader = ({ text = 'Loading content...' }) => (
-  <div className="flex items-center justify-center py-12">
-    <LoadingSpinner size="lg" text={text} />
-  </div>
-)
+const ContentLoader = ({ text }) => {
+  const { t } = useI18n()
+  return (
+    <div className="flex items-center justify-center py-12">
+      <LoadingSpinner size="lg" text={text ?? t('loadingContent')} />
+    </div>
+  )
+}
 
 const ButtonSpinner = () => (
   <div className="spinner mr-2" />

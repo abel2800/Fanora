@@ -61,6 +61,25 @@ const Message = sequelize.define('Message', {
     defaultValue: false,
     field: 'deleted_by_recipient',
   },
+  price: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+  },
+  isPaid: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'is_paid',
+  },
+  isUnlocked: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'is_unlocked',
+  },
+  isBlast: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'is_blast',
+  },
 }, {
   tableName: 'messages',
   indexes: [

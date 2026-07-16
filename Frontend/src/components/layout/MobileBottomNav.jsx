@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useI18n } from '../../contexts/I18nContext'
 import {
   HomeIcon,
   MagnifyingGlassIcon,
@@ -9,13 +10,14 @@ import {
 
 export function MobileBottomNav() {
   const location = useLocation()
+  const { t, language, toggleLanguage } = useI18n()
 
   const navItems = [
-    { path: '/home', icon: HomeIcon, label: 'Home' },
-    { path: '/explore', icon: MagnifyingGlassIcon, label: 'Explore' },
-    { path: '/creator/post/new', icon: PlusCircleIcon, label: 'Create', special: true },
-    { path: '/messages', icon: ChatBubbleLeftIcon, label: 'Messages' },
-    { path: '/profile', icon: UserCircleIcon, label: 'Profile' },
+    { path: '/home', icon: HomeIcon, label: t('home') },
+    { path: '/explore', icon: MagnifyingGlassIcon, label: t('explore') },
+    { path: '/creator/post/new', icon: PlusCircleIcon, label: t('create'), special: true },
+    { path: '/messages', icon: ChatBubbleLeftIcon, label: t('messages') },
+    { path: '/profile', icon: UserCircleIcon, label: t('profile') },
   ]
 
   const isActive = (path) => {
@@ -27,7 +29,7 @@ export function MobileBottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-charcoal-800 border-t border-charcoal-700">
-      <div className="flex items-center justify-around h-16 px-2">
+      <div className="flex items-center justify-around h-16 px-1">
         {navItems.map((item) => {
           const Icon = item.icon
           const active = isActive(item.path)
@@ -36,7 +38,7 @@ export function MobileBottomNav() {
             return (
               <Link key={item.path} to={item.path} className="relative -mt-6">
                 <div className="w-14 h-14 rounded-full bg-gradient-to-r from-primary-500 to-primary-600 flex items-center justify-center shadow-lg">
-                  <Icon className="w-7 h-7 text-white" />
+                  <Icon className="w-7 h-7 text-charcoal-900" />
                 </div>
               </Link>
             )
@@ -55,6 +57,15 @@ export function MobileBottomNav() {
             </Link>
           )
         })}
+        <button
+          type="button"
+          onClick={toggleLanguage}
+          className="flex flex-col items-center justify-center flex-1 h-full text-gray-400"
+          aria-label={t('changeLanguage')}
+        >
+          <span className="text-xs font-bold text-primary-400">{language === 'en' ? 'አማ' : 'EN'}</span>
+          <span className="text-[10px] mt-1 font-medium">{t('language')}</span>
+        </button>
       </div>
     </nav>
   )

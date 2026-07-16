@@ -1,5 +1,7 @@
-# Dependencies
+# Dependencies — single install at repo root (npm workspaces)
 node_modules/
+Backend/node_modules/
+Frontend/node_modules/
 .pnp
 .pnp.js
 
@@ -75,6 +77,23 @@ secrets/
 .cache/
 .parcel-cache/
 .turbo/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Misc
 .qodo/
+
+# Flutter / Dart
+Mobile/.dart_tool/
+Mobile/.flutter-plugins
+Mobile/.flutter-plugins-dependencies
+Mobile/.packages
+Mobile/.pub-cache/
+Mobile/.pub/
+Mobile/build/
+Mobile/**/Generated.xcconfig
+Mobile/**/flutter_export_environment.sh
+*.iml

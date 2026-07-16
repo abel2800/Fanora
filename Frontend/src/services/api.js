@@ -53,6 +53,8 @@ export const authAPI = {
   verifyEmail: (token) => api.post(`/auth/verify-email/${token}`),
   resendVerification: () => api.post('/auth/resend-verification'),
   changePassword: (data) => api.post('/auth/change-password', data),
+  sendOtp: (data) => api.post('/auth/send-otp', data),
+  verifyOtp: (data) => api.post('/auth/verify-otp', data),
 }
 
 // Users API
@@ -61,6 +63,12 @@ export const usersAPI = {
   updateProfile: (data) => api.put('/users/profile', data),
   followUser: (userId) => api.post(`/users/follow/${userId}`),
   unfollowUser: (userId) => api.post(`/users/unfollow/${userId}`),
+  getFollowing: (userId) => api.get(`/users/following/${userId}`),
+  getFollowers: (userId) => api.get(`/users/followers/${userId}`),
+  getMyFollowing: () => api.get('/users/me/following'),
+  getSettings: () => api.get('/users/me/settings'),
+  updateSettings: (data) => api.put('/users/me/settings', data),
+  registerDeviceToken: (data) => api.post('/users/me/device-token', data),
 }
 
 // Creators API
@@ -68,6 +76,9 @@ export const creatorsAPI = {
   becomeCreator: () => api.post('/creators/apply'),
   getCreators: (params) => api.get('/creators', { params }),
   getDashboard: (creatorId) => api.get(`/creators/${creatorId}/dashboard`),
+  getInsights: (params) => api.get('/creators/me/insights', { params }),
+  getReferral: () => api.get('/creators/me/referral'),
+  applyReferral: (data) => api.post('/creators/referral/apply', data),
 }
 
 // Add becomeCreator to authAPI as well
@@ -91,6 +102,10 @@ export const contentAPI = {
   addComment: (contentId, data) => api.post(`/content/${contentId}/comments`, data),
   getComments: (contentId, params) => api.get(`/content/${contentId}/comments`, { params }),
   deleteComment: (contentId, commentId) => api.delete(`/content/${contentId}/comments/${commentId}`),
+  purchaseContent: (contentId) => api.post(`/content/${contentId}/purchase`),
+  getMyPurchases: () => api.get('/content/purchases/my'),
+  getCalendar: (params) => api.get('/content/calendar/mine', { params }),
+  updateCalendarItem: (id, data) => api.patch(`/content/calendar/${id}`, data),
 }
 
 // Subscriptions API
@@ -101,7 +116,8 @@ export const subscriptionsAPI = {
   updatePlan: (planId, data) => api.put(`/subscriptions/plans/${planId}`, data),
   deletePlan: (planId) => api.delete(`/subscriptions/plans/${planId}`),
   subscribe: (planId, data) => api.post(`/subscriptions/subscribe/${planId}`, data),
-  cancelSubscription: (subscriptionId) => api.post(`/subscriptions/cancel/${subscriptionId}`),
+  cancelSubscription: (subscriptionId, data) => api.post(`/subscriptions/cancel/${subscriptionId}`, data),
+  pauseSubscription: (subscriptionId) => api.post(`/subscriptions/pause/${subscriptionId}`),
   getMySubscriptions: () => api.get('/subscriptions/my'),
   getSubscribers: (planId, params) => api.get(`/subscriptions/subscribers/${planId}`, { params }),
   getEarnings: (params) => api.get('/subscriptions/earnings', { params }),
@@ -117,8 +133,10 @@ export const walletAPI = {
   linkCBE: (data) => api.post('/wallet/link-cbe', data),
   topupTelebirr: (data) => api.post('/wallet/topup/telebirr', data),
   topupCBE: (data) => api.post('/wallet/topup/cbe', data),
+  confirmTopup: (transactionId) => api.post(`/wallet/topup/confirm/${transactionId}`),
   getTransactions: (params) => api.get('/wallet/transactions', { params }),
   getPaymentMethods: () => api.get('/wallet/payment-methods'),
+  withdraw: (data) => api.post('/wallet/withdraw', data),
 }
 
 // Payments API
@@ -137,6 +155,8 @@ export const messagesAPI = {
   markAsRead: (conversationId) => api.post(`/messages/read/${conversationId}`),
   deleteConversation: (userId) => api.delete(`/messages/conversations/${userId}`),
   searchMessages: (query) => api.get('/messages/search', { params: { q: query } }),
+  sendBlast: (data) => api.post('/messages/blast', data),
+  unlockMessage: (messageId, data) => api.post(`/messages/${messageId}/unlock`, data),
 }
 
 // Notifications API
@@ -171,11 +191,18 @@ export const searchAPI = {
   search: (params) => api.get('/search', { params }),
 }
 
+export const liveAPI = {
+  list: () => api.get('/live'),
+  get: (id) => api.get(`/live/${id}`),
+  start: (data) => api.post('/live/start', data),
+  end: (id) => api.post(`/live/${id}/end`),
+}
+
 export const uploadAPI = {
-  uploadFile: async (file, type = 'image') => {
+  uploadFile: async (file, folder = 'uploads') => {
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('type', type)
+    formData.append('folder', folder)
 
     return api.post('/upload', formData, {
       headers: {
@@ -183,6 +210,71 @@ export const uploadAPI = {
       },
     })
   },
+}
+
+export const bundlesAPI = {
+  getCreatorBundles: (creatorId) => api.get(`/bundles/creator/${creatorId}`),
+  getMyBundles: () => api.get('/bundles/my'),
+  createBundle: (data) => api.post('/bundles', data),
+  updateBundle: (id, data) => api.put(`/bundles/${id}`, data),
+  deleteBundle: (id) => api.delete(`/bundles/${id}`),
+  purchaseBundle: (id, data) => api.post(`/bundles/${id}/purchase`, data),
+}
+
+export const trustAPI = {
+  getReports: () => api.get('/trust/reports'),
+  submitReport: (data) => api.post('/trust/report', data),
+  getBlocked: () => api.get('/trust/blocked'),
+  blockUser: (userId) => api.post(`/trust/block/${userId}`),
+  unblockUser: (userId) => api.delete(`/trust/block/${userId}`),
+}
+
+export const adminAPI = {
+  getStats: () => api.get('/admin/stats'),
+  getVerificationQueue: () => api.get('/admin/verification-queue'),
+  reviewVerification: (userId, data) => api.post(`/admin/verification/${userId}`, data),
+  getModerationQueue: () => api.get('/admin/moderation-queue'),
+  reviewContent: (contentId, data) => api.post(`/admin/moderation/${contentId}`, data),
+  getPayoutQueue: () => api.get('/admin/payout-queue'),
+  reviewPayout: (transactionId, data) => api.post(`/admin/payout/${transactionId}`, data),
+  getDisputes: () => api.get('/admin/disputes'),
+  resolveDispute: (reportId, data) => api.post(`/admin/disputes/${reportId}`, data),
+}
+
+export const requestsAPI = {
+  getMine: () => api.get('/requests/mine'),
+  getInbox: () => api.get('/requests/inbox'),
+  create: (data) => api.post('/requests', data),
+  respond: (id, data) => api.patch(`/requests/${id}/respond`, data),
+  pay: (id, data) => api.post(`/requests/${id}/pay`, data),
+  deliver: (id, data) => api.patch(`/requests/${id}/deliver`, data),
+}
+
+export const giftsAPI = {
+  getMine: () => api.get('/gifts/mine'),
+  create: (data) => api.post('/gifts', data),
+  redeem: (data) => api.post('/gifts/redeem', data),
+}
+
+export const creatorOnboardingAPI = {
+  get: () => api.get('/creator-onboarding'),
+  updateIdentity: (data) => api.put('/creator-onboarding/identity', data),
+  analyze: () => api.post('/creator-onboarding/analyze'),
+  updatePayout: (data) => api.put('/creator-onboarding/payout', data),
+  submit: (data) => api.post('/creator-onboarding/submit', data),
+}
+
+export const mediaSecurityAPI = {
+  getWatermark: (contentId) => api.get(`/media-security/watermark/${contentId}`),
+  reportEvent: (data) => api.post('/media-security/event', data),
+  getEvents: () => api.get('/media-security/events'),
+}
+
+export const wishlistAPI = {
+  getAll: () => api.get('/wishlist'),
+  status: (contentId) => api.get(`/wishlist/${contentId}/status`),
+  add: (contentId) => api.post(`/wishlist/${contentId}`),
+  remove: (contentId) => api.delete(`/wishlist/${contentId}`),
 }
 
 export default api

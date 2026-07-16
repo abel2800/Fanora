@@ -1,148 +1,187 @@
 import { useState } from 'react'
-import { useQuery } from 'react-query'
-import { Card } from '../components/ui/Card'
+import { useQuery, useMutation, useQueryClient } from 'react-query'
+import { storiesAPI, uploadAPI } from '../services/api'
 import { Button } from '../components/ui/Button'
 import { Avatar } from '../components/ui/Avatar'
 import { Modal } from '../components/ui/Modal'
-import { LoadingSpinner } from '../components/ui/LoadingSpinner'
+import { PageSkeleton } from '../components/ui/Skeleton'
 import { PlusIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { useI18n } from '../contexts/I18nContext'
 import toast from 'react-hot-toast'
+import { useAuth } from '../contexts/AuthContext'
+import { getDataSaverEnabled } from '../lib/dataSaver'
 
 export function StoriesPage() {
+  const { t } = useI18n()
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [selectedStory, setSelectedStory] = useState(null)
+  const [selectedGroup, setSelectedGroup] = useState(null)
   const [storyIndex, setStoryIndex] = useState(0)
+  const [file, setFile] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const [loadedVideoId, setLoadedVideoId] = useState(null)
+  const dataSaver = getDataSaverEnabled()
 
-  const { data: stories = [], isLoading } = useQuery(
-    ['stories'],
-    () => Promise.resolve([
-      {
-        id: 1,
-        creator: { username: 'creator1', profileImage: 'https://via.placeholder.com/100' },
-        imageUrl: 'https://via.placeholder.com/400x800',
-        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2h ago
-        views: 145,
-        isViewed: false
+  const { data: storyGroups = [], isLoading } = useQuery(['stories'], async () => {
+    const { data } = await storiesAPI.getFeed()
+    return data.data || data || []
+  })
+
+  const createMutation = useMutation(
+    async () => {
+      if (!file) throw new Error(t('selectImageOrVideo'))
+      setUploading(true)
+      const uploadRes = await uploadAPI.uploadFile(file, 'stories')
+      const mediaUrl = uploadRes.data?.data?.url || uploadRes.data?.url
+      const mediaType = file.type.startsWith('video/') ? 'video' : 'image'
+      return storiesAPI.createStory({ mediaUrl, mediaType })
+    },
+    {
+      onSuccess: () => {
+        toast.success(t('storyPosted'))
+        setShowCreateModal(false)
+        setFile(null)
+        queryClient.invalidateQueries(['stories'])
       },
-      {
-        id: 2,
-        creator: { username: 'creator2', profileImage: 'https://via.placeholder.com/100' },
-        imageUrl: 'https://via.placeholder.com/400x800',
-        createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5h ago
-        views: 89,
-        isViewed: false
-      }
-    ])
+      onError: (error) => {
+        toast.error(error.response?.data?.message || error.message || t('failedToCreateStory'))
+      },
+      onSettled: () => setUploading(false),
+    }
   )
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-charcoal-900 flex items-center justify-center">
-        <LoadingSpinner />
+        <PageSkeleton />
       </div>
     )
   }
+
+  const currentStory = selectedGroup?.stories?.[storyIndex]
 
   return (
     <div className="min-h-screen bg-charcoal-900 pb-12">
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-100">Stories</h1>
-          <Button onClick={() => setShowCreateModal(true)} variant="primary">
-            <PlusIcon className="w-5 h-5 mr-2" />
-            Create Story
-          </Button>
+          <h1 className="text-3xl font-bold text-gray-100">{t('stories')}</h1>
+          {user?.isCreator && (
+            <Button onClick={() => setShowCreateModal(true)} variant="primary">
+              <PlusIcon className="w-5 h-5 mr-2" />
+              {t('createStory')}
+            </Button>
+          )}
         </div>
 
-        {/* Stories Carousel */}
         <div className="flex gap-4 overflow-x-auto pb-4">
-          {/* My Story (Create New) */}
-          <div
-            onClick={() => setShowCreateModal(true)}
-            className="flex-shrink-0 w-24 h-32 bg-charcoal-800 rounded-lg flex items-center justify-center cursor-pointer hover:bg-charcoal-700 transition border-2 border-dashed border-charcoal-700"
-          >
-            <PlusIcon className="w-8 h-8 text-gray-400" />
-          </div>
-
-          {/* Creators' Stories */}
-          {stories.map(story => (
+          {user?.isCreator && (
             <div
-              key={story.id}
-              onClick={() => { setSelectedStory(story); setStoryIndex(0) }}
-              className={`flex-shrink-0 w-24 h-32 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition relative ${
-                !story.isViewed ? 'ring-2 ring-primary-500' : 'ring-2 ring-gray-500'
-              }`}
+              onClick={() => setShowCreateModal(true)}
+              className="flex-shrink-0 w-24 h-32 bg-charcoal-800 rounded-lg flex items-center justify-center cursor-pointer hover:bg-charcoal-700 transition border-2 border-dashed border-charcoal-700"
             >
-              <img src={story.imageUrl} alt={story.creator.username} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-transparent"></div>
-              <div className="absolute bottom-0 left-0 right-0 p-2">
-                <p className="text-xs text-white font-medium truncate">{story.creator.username}</p>
-                <p className="text-xs text-gray-300">{story.views} views</p>
-              </div>
+              <PlusIcon className="w-8 h-8 text-gray-400" />
             </div>
-          ))}
-        </div>
+          )}
 
-        {/* Story Viewer Modal */}
-        {selectedStory && (
-          <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
-            <div className="relative w-full h-full max-w-sm">
-              {/* Progress bars */}
-              <div className="absolute top-0 left-0 right-0 flex gap-1 p-2 z-10">
-                {[0].map((_, i) => (
-                  <div key={i} className="flex-1 h-1 bg-gray-600 rounded-full overflow-hidden">
-                    <div className="h-full bg-white" style={{ width: '100%' }}></div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Story Image */}
-              <img src={selectedStory.imageUrl} alt="Story" className="w-full h-full object-cover" />
-
-              {/* Creator Info */}
-              <div className="absolute top-6 left-4 right-4 flex items-center gap-3 z-20">
-                <Avatar src={selectedStory.creator.profileImage} size="sm" />
-                <div>
-                  <p className="text-white font-semibold text-sm">{selectedStory.creator.username}</p>
-                  <p className="text-gray-300 text-xs">
-                    {Math.round((Date.now() - new Date(selectedStory.createdAt)) / (60 * 1000))}m ago
+          {storyGroups.map((group) => {
+            const preview = group.stories?.[0]
+            const mediaUrl = preview?.mediaUrl || preview?.imageUrl
+            return (
+              <div
+                key={group.creator?.id || preview?.id}
+                onClick={() => {
+                  setSelectedGroup(group)
+                  setStoryIndex(0)
+                }}
+                className="flex-shrink-0 w-24 h-32 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition relative ring-2 ring-primary-500"
+              >
+                {mediaUrl ? (
+                  <img src={mediaUrl} alt={group.creator?.username} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-charcoal-700" />
+                )}
+                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/70">
+                  <p className="text-xs text-white font-medium truncate">
+                    @{group.creator?.username}
                   </p>
                 </div>
               </div>
+            )
+          })}
+        </div>
 
-              {/* Close Button */}
-              <button
-                onClick={() => setSelectedStory(null)}
-                className="absolute top-4 right-4 text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 z-20"
-              >
-                <XMarkIcon className="w-6 h-6" />
-              </button>
-
-              {/* Next/Previous Controls */}
-              <button
-                onClick={() => setSelectedStory(null)}
-                className="absolute inset-y-0 left-0 w-1/3 hover:bg-white hover:bg-opacity-5 z-20"
-              />
-              <button
-                onClick={() => setSelectedStory(null)}
-                className="absolute inset-y-0 right-0 w-1/3 hover:bg-white hover:bg-opacity-5 z-20"
-              />
-            </div>
-          </div>
+        {storyGroups.length === 0 && (
+          <p className="text-gray-400 mt-8">{t('noActiveStories')}</p>
         )}
       </div>
 
-      {/* Create Story Modal */}
-      <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Create Story">
-        <div className="space-y-4">
-          <div className="border-2 border-dashed border-charcoal-700 rounded-lg p-8 text-center cursor-pointer hover:border-primary-500 transition">
-            <PlusIcon className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-            <p className="text-gray-300">Upload photo or video (max 15s)</p>
-            <p className="text-xs text-gray-500 mt-2">Stories expire in 24 hours</p>
+      <Modal isOpen={!!selectedGroup} onClose={() => setSelectedGroup(null)} title={`@${selectedGroup?.creator?.username || ''}`}>
+        {currentStory && (
+          <div className="relative">
+            {currentStory.mediaType === 'video' && (!dataSaver || loadedVideoId === currentStory.id) ? (
+              <video
+                src={currentStory.mediaUrl}
+                controls
+                preload={dataSaver ? 'none' : 'metadata'}
+                className="w-full max-h-[70vh] rounded-lg"
+              />
+            ) : currentStory.mediaType === 'video' ? (
+              <button
+                type="button"
+                onClick={() => setLoadedVideoId(currentStory.id)}
+                className="flex min-h-72 w-full items-center justify-center rounded-card bg-charcoal-800 text-primary-500"
+              >
+                {t('tapToLoadVideo')}
+              </button>
+            ) : (
+              <img
+                src={currentStory.mediaUrl || currentStory.imageUrl}
+                alt="Story"
+                className="w-full max-h-[70vh] object-contain rounded-lg"
+              />
+            )}
+            <div className="flex justify-between mt-4">
+              <Button
+                variant="secondary"
+                disabled={storyIndex <= 0}
+                onClick={() => setStoryIndex((i) => Math.max(0, i - 1))}
+              >
+                {t('previous')}
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={storyIndex >= (selectedGroup?.stories?.length || 1) - 1}
+                onClick={() => setStoryIndex((i) => i + 1)}
+              >
+                {t('next')}
+              </Button>
+            </div>
           </div>
-          <Button onClick={() => { setShowCreateModal(false); toast.success('Story posted!') }} variant="primary" className="w-full">
-            Post Story
-          </Button>
+        )}
+      </Modal>
+
+      <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title={t('createStory')}>
+        <div className="space-y-4">
+          <input
+            type="file"
+            accept="image/*,video/*"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            className="block w-full text-sm text-gray-300"
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowCreateModal(false)}>
+              <XMarkIcon className="w-4 h-4 mr-1" />
+              {t('cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              disabled={!file || uploading}
+              onClick={() => createMutation.mutate()}
+            >
+              {uploading ? t('uploading') : t('postStory')}
+            </Button>
+          </div>
         </div>
       </Modal>
     </div>

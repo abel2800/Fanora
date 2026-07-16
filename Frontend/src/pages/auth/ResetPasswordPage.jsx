@@ -3,10 +3,12 @@ import { useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 import { useAuth } from '../../contexts/AuthContext'
+import { useI18n } from '../../contexts/I18nContext'
 import { Button } from '../../components/ui/Button'
 import { Input, FormGroup, Label, ErrorMessage } from '../../components/ui/Input'
 
 export function ResetPasswordPage() {
+  const { t, language, toggleLanguage } = useI18n()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const { token } = useParams()
@@ -27,7 +29,7 @@ export function ResetPasswordPage() {
       setIsLoading(true)
       await resetPassword(token, data.password)
     } catch (error) {
-      const message = error.response?.data?.message || 'Failed to reset password'
+      const message = error.response?.data?.message || t('failedToResetPassword')
       setError('root', { message })
     } finally {
       setIsLoading(false)
@@ -48,25 +50,35 @@ export function ResetPasswordPage() {
     
     score = Object.values(checks).filter(Boolean).length
     
-    if (score < 3) return { score, text: 'Weak', color: 'text-red-600' }
-    if (score < 4) return { score, text: 'Good', color: 'text-yellow-600' }
-    return { score, text: 'Strong', color: 'text-green-600' }
+    if (score < 3) return { score, text: t('passwordWeak'), color: 'text-red-600' }
+    if (score < 4) return { score, text: t('passwordGood'), color: 'text-yellow-600' }
+    return { score, text: t('passwordStrong'), color: 'text-green-600' }
   }
 
   const strength = passwordStrength(password)
 
   return (
-    <>
+    <div className="min-h-screen bg-charcoal-900 flex flex-col items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md">
+      <div className="flex justify-end mb-4">
+        <button
+          type="button"
+          onClick={toggleLanguage}
+          className="text-sm text-primary-400 border border-charcoal-600 rounded-pill px-3 py-1"
+        >
+          {language === 'en' ? t('amharic') : t('english')}
+        </button>
+      </div>
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-900">Reset your password</h2>
-        <p className="mt-2 text-sm text-gray-600">
-          Enter your new password below
+        <h2 className="text-2xl font-bold text-gray-100">{t('resetYourPassword')}</h2>
+        <p className="mt-2 text-sm text-gray-400">
+          {t('enterNewPassword')}
         </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <FormGroup>
-          <Label htmlFor="password" required>New password</Label>
+          <Label htmlFor="password" required>{t('newPassword')}</Label>
           <div className="relative">
             <Input
               id="password"
@@ -74,14 +86,14 @@ export function ResetPasswordPage() {
               autoComplete="new-password"
               error={errors.password}
               {...register('password', {
-                required: 'Password is required',
+                required: t('passwordRequired'),
                 minLength: {
                   value: 8,
-                  message: 'Password must be at least 8 characters'
+                  message: t('passwordMinLength')
                 },
                 pattern: {
                   value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-                  message: 'Password must contain at least one uppercase letter, lowercase letter, and number'
+                  message: t('passwordComplexity')
                 }
               })}
             />
@@ -100,7 +112,7 @@ export function ResetPasswordPage() {
           {password && (
             <div className="mt-2">
               <div className="flex items-center space-x-2">
-                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                <div className="flex-1 bg-charcoal-700 rounded-full h-2">
                   <div 
                     className={`h-2 rounded-full transition-all duration-300 ${
                       strength.score < 3 ? 'bg-red-500' : 
@@ -119,15 +131,15 @@ export function ResetPasswordPage() {
         </FormGroup>
 
         <FormGroup>
-          <Label htmlFor="confirmPassword" required>Confirm new password</Label>
+          <Label htmlFor="confirmPassword" required>{t('confirmNewPassword')}</Label>
           <Input
             id="confirmPassword"
             type={showPassword ? 'text' : 'password'}
             autoComplete="new-password"
             error={errors.confirmPassword}
             {...register('confirmPassword', {
-              required: 'Please confirm your password',
-              validate: value => value === password || 'Passwords do not match'
+              required: t('pleaseConfirmPassword'),
+              validate: value => value === password || t('passwordsDoNotMatch')
             })}
           />
           {errors.confirmPassword && <ErrorMessage>{errors.confirmPassword.message}</ErrorMessage>}
@@ -147,9 +159,10 @@ export function ResetPasswordPage() {
           loading={isLoading}
           disabled={isLoading}
         >
-          Reset password
+          {t('resetPassword')}
         </Button>
       </form>
-    </>
+      </div>
+    </div>
   )
 }
